@@ -23,6 +23,9 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
                               callbacks: list = None, display_neptune_link: bool = True,
                               paths_to_dump: str = None, paths_to_copy: List[str] = None):
 
+    assert with_neptune == True or project_name is not None, \
+        "You need to specify `project_name` if `with_neptune` is False!"
+
     env = env if env is not None else {}
     exclude = exclude if exclude is not None else []
     callbacks = callbacks if callbacks is not None else []

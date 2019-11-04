@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import namedtuple, OrderedDict
 from tempfile import NamedTemporaryFile
 
@@ -10,6 +11,8 @@ from path import Path
 
 LOGGER = logging.getLogger(__name__)
 
+def pathify(path, separator='-'):
+    return re.sub(r'[ .,]+', separator, path.lower())
 
 def parse_argv(parser, argv):
     try:

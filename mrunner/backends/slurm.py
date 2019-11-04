@@ -16,7 +16,7 @@ from path import Path
 from mrunner.experiment import COMMON_EXPERIMENT_MANDATORY_FIELDS, COMMON_EXPERIMENT_OPTIONAL_FIELDS
 from mrunner.consts import PLGRID_USERNAME, PLGRID_HOST, PLGRID_TESTING_PARTITION
 from mrunner.utils.namesgenerator import id_generator
-from mrunner.utils.utils import GeneratedTemplateFile, get_paths_to_copy, make_attr_class, filter_only_attr
+from mrunner.utils.utils import GeneratedTemplateFile, get_paths_to_copy, make_attr_class, filter_only_attr, pathify
 
 LOGGER = logging.getLogger(__name__)
 RECOMMENDED_CPUS_NUMBER = 4
@@ -25,20 +25,20 @@ DEFAULT_CACHE_DIR = '.cache'
 SCRATCH_DIR_RANDOM_SUFIX_SIZE = 10
 
 def generate_scratch_dir(experiment):
-    return Path(experiment._slurm_scratch_dir) / DEFAULT_SCRATCH_DIR
+    return Path(experiment._slurm_scratch_dir) / pathify(DEFAULT_SCRATCH_DIR)
 
 def generate_cache_dir(experiment):
-    return experiment.scratch_dir / DEFAULT_CACHE_DIR
+    return experiment.scratch_dir / pathify(DEFAULT_CACHE_DIR)
     
 def generate_project_scratch_dir(experiment):
-    return experiment.scratch_dir / experiment.project.split('/')[-1]
+    return experiment.scratch_dir / pathify(experiment.project.split('/')[-1])
 
 def generate_grid_scratch_dir(experiment):
-    return experiment.project_scratch_dir / experiment.unique_name
+    return experiment.project_scratch_dir / pathify(experiment.unique_name)
 
 def generate_experiment_scratch_dir(experiment):
     #TODO(pj): Change id_generator to hyper-params shorthand
-    return experiment.grid_scratch_dir / experiment.name + '_' + id_generator(4)
+    return experiment.grid_scratch_dir / pathify(experiment.name + '_' + id_generator(4))
 
 EXPERIMENT_MANDATORY_FIELDS = [
     ('_slurm_scratch_dir', dict())  # obtained from cluster $SCRATCH env

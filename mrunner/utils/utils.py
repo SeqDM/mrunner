@@ -12,7 +12,7 @@ from path import Path
 LOGGER = logging.getLogger(__name__)
 
 def pathify(path, separator='-'):
-    return re.sub(r'[ .,]+', separator, path.lower())
+    return re.sub(r'[ ]+', separator, path.lower())
 
 def parse_argv(parser, argv):
     try:

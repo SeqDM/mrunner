@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import random
+import re
 import warnings
 
 import attr
@@ -9,7 +10,6 @@ from path import Path
 import cloudpickle
 
 from mrunner.utils.namesgenerator import id_generator, get_random_name, get_unique_name
-from mrunner.utils.utils import pathify
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def _load_py_experiment(script, spec, *, dump_dir):
     experiments_list = get_experiments_list(script, spec)
     for experiment in experiments_list:
         spec_params = experiment.to_dict()
-        spec_params['name'] = pathify(spec_params['name'])
+        spec_params['name'] = re.sub(r'[ .,_-]+', '-', spec_params['name'].lower())
 
         config_path = _create_and_dump_config(spec_params, dump_dir)
 

@@ -21,7 +21,7 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
                               exclude: List[str] = None, with_neptune: bool = True,
                               display_neptune_link: bool = True, copy_neptune_link: bool = True,
                               paths_to_dump: str = None, paths_to_copy: List[str] = None,
-                              callbacks: list = None):
+                              with_mpi: bool = False, callbacks: list = None):
 
     assert with_neptune == True or project_name is not None, \
         "You need to specify `project_name` if `with_neptune` is False!"
@@ -91,7 +91,8 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
 
         experiments.append(Experiment(project=project_name, name=experiment_name, script=script,
                                       parameters=config, paths_to_copy=paths_to_copy, tags=tags, env=env,
-                                      exclude=exclude, git_info=git_info, random_name=random_name))
+                                      exclude=exclude, git_info=git_info, random_name=random_name,
+                                      with_mpi=with_mpi))
 
     return experiments
 

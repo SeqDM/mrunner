@@ -25,6 +25,7 @@ COMMON_EXPERIMENT_OPTIONAL_FIELDS = [
     ('random_name', dict(factory=get_random_name)),
     ('unique_name', dict(default=attr.Factory(get_unique_name, takes_self=True))),
     ('requirements', dict(default=attr.Factory(list), type=list)),
+    ('with_mpi', dict(default=False)),
     ('exclude', dict(default=None, type=list)),
     ('paths_to_copy', dict(default=attr.Factory(list), type=list)),
     ('env', dict(default=attr.Factory(dict), type=dict)),
@@ -48,6 +49,7 @@ class Experiment(object):
     random_name = attr.ib(factory=get_random_name)
     unique_name = attr.ib(default=attr.Factory(get_unique_name, takes_self=True))
     git_info = attr.ib(default=None)
+    with_mpi = attr.ib(default=False)
 
     def to_dict(self):
         return attr.asdict(self)

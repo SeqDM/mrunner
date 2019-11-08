@@ -6,7 +6,6 @@ from collections import Mapping, OrderedDict
 from itertools import product
 from typing import List
 
-import pyperclip
 from munch import Munch
 from neptune.utils import get_git_info
 from termcolor import colored
@@ -20,8 +19,9 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
                               add_random_tag: bool = True, env: dict = None,
                               project_name: str = None, exclude_git_files: bool = True,
                               exclude: List[str] = None, with_neptune: bool = True,
-                              callbacks: list = None, display_neptune_link: bool = True,
-                              paths_to_dump: str = None, paths_to_copy: List[str] = None):
+                              display_neptune_link: bool = True, copy_neptune_link: bool = True,
+                              paths_to_dump: str = None, paths_to_copy: List[str] = None,
+                              callbacks: list = None):
 
     assert with_neptune == True or project_name is not None, \
         "You need to specify `project_name` if `with_neptune` is False!"
@@ -53,14 +53,17 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
             print("NEPTUNE_API_TOKEN is not set. Connecting with neptune will fail.")
             display_neptune_link = False
 
-        if display_neptune_link and add_random_tag:
-            if project_name is None:
-                assert "NEPTUNE_PROJECT_NAME" in os.environ, "You should either set NEPTUNE_PROJECT_NAME or directly pass " \
-                                                             "the requested project name. The former is better in the collaborative work" \
-                                                             "with many projects"
-                project_name = os.environ.get("NEPTUNE_PROJECT_NAME")
+        if project_name is None:
+            assert "NEPTUNE_PROJECT_NAME" in os.environ, "You should either set NEPTUNE_PROJECT_NAME or directly pass " \
+                                                         "the requested project name. The former is better in the collaborative work" \
+                                                         "with many projects"
+            project_name = os.environ.get("NEPTUNE_PROJECT_NAME")
+
+        if display_neptune_link:
             link = f'https://ui.neptune.ml/{project_name}/experiments?tag=%5B%22{random_name}%22%5D'
-            pyperclip.copy(link)
+            if copy_neptune_link:
+                import pyperclip
+                pyperclip.copy(link)
 
             print("> ============ ============ ============ Neptune link ============ ============ ============ <")
             print(colored(link, 'green'))

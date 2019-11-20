@@ -29,11 +29,11 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
     env = env if env is not None else {}
     exclude = exclude if exclude is not None else []
     callbacks = callbacks if callbacks is not None else []
-        
+
     random_name = get_random_name()
     if add_random_tag:
         tags.append(random_name)
-        
+
     if paths_to_dump:
         warnings.warn(
             "paths_to_dump is deprecated, use paths_to_copy instead",
@@ -43,7 +43,7 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
 
     if python_path:
         env['PYTHONPATH'] = ':'.join(['$PYTHONPATH', ] + python_path.split(':'))
-        
+
     if with_neptune:
         if "NEPTUNE_API_TOKEN" in os.environ:
             env["NEPTUNE_API_TOKEN"] = os.environ["NEPTUNE_API_TOKEN"]
@@ -63,7 +63,11 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
             link = f'https://ui.neptune.ml/{project_name}/experiments?tag=%5B%22{random_name}%22%5D'
             if copy_neptune_link:
                 import pyperclip
-                pyperclip.copy(link)
+                # Fix for systems without copy/paste mechanism (like singularity container).
+                try:
+                    pyperclip.copy(link)
+                except pyperclip.PyperclipException:
+                    print("[!] Wasn't able to copy Neptune link! Catched PyperclipException.")
 
             print("> ============ ============ ============ Neptune link ============ ============ ============ <")
             print(colored(link, 'green'))
@@ -150,7 +154,7 @@ def get_combinations(param_grids, limit=None):
             for grid in grids + grids___:
                 assert isinstance(grid, allowed_container_types), \
                     'grid values should be passed in one of given types: {}, got {} ({})' \
-                        .format(allowed_container_types, type(grid), grid)
+                    .format(allowed_container_types, type(grid), grid)
 
             if grids___:
                 for param_values___ in zip(*grids___):

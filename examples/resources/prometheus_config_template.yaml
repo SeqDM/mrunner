@@ -4,7 +4,9 @@
      backend_type: slurm
      cmd_type: sbatch
      modules_to_load:
+     - plgrid/tools/git
      - plgrid/tools/python/3.6.5
+     - plgrid/tools/openmpi/3.0.0-gcc-4.9.2
      partition: plgrid-testing
      requirements_file: resources/requirements.txt
      time: 59
@@ -27,22 +29,5 @@
      slurm_url: <username>@eagle.man.poznan.pl
      storage_dir: /home/plgrid/<username>
      venv: /home/plgrid/<username>/mrunner_example_env
-
-   prometheus_cpu_mpi:
-     account: <grantname>
-     backend_type: slurm
-     cmd_type: sbatch
-     modules_to_load:
-     - plgrid/tools/python/3.6.5
-     - plgrid/tools/openmpi/3.0.0-gcc-4.9.2
-     partition: plgrid-testing
-     ntasks: 2
-     requirements_file: resources/requirements.txt
-     time: 59
-     cpu: 2
-     mem: 5G
-     slurm_url: <username>@pro.cyfronet.pl
-     storage_dir: /net/archive/groups/plggluna/<username>
-     venv: /net/people/<username>/mrunner_example_env
 
  current_context: prometheus_cpu

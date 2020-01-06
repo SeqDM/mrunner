@@ -188,13 +188,21 @@ class SRunWrapperCmd(SlurmWrappersCmd):
 class SlurmBackend(object):
 
     initialized = attr.ib(default=False, init=False)
+    conn_cache = {}
 
     def run(self, experiment):
         assert Agent().get_keys(), "Add your private key to ssh agent using 'ssh-add' command"
 
         # configure fabric
         slurm_url = experiment.pop('slurm_url', '{}@{}'.format(PLGRID_USERNAME, PLGRID_HOST))
-        self.connection = Connection(slurm_url)
+        if slurm_url in self.conn_cache:
+            self.connection = self.conn_cache[slurm_url]
+            LOGGER.info('REUSING cached connection')
+        else:
+            LOGGER.info('NEW connection connection')
+            self.connection = Connection(slurm_url)
+            self.conn_cache[slurm_url] = self.connection
+            
         # env['host_string'] = slurm_url
         # env['--connection-attempts'] = "5" - not supported!
         # not ported yet: env['--timeout'] = "60" 

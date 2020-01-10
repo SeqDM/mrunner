@@ -5,11 +5,7 @@ import tarfile
 import tempfile
 
 import attr
-from fabric.api import run as fabric_run
-from fabric.context_managers import cd
-from fabric.contrib import files
-from fabric.contrib.project import rsync_project
-from fabric.state import env
+from fabric import Connection
 from paramiko.agent import Agent
 from path import Path
 
@@ -192,15 +188,24 @@ class SRunWrapperCmd(SlurmWrappersCmd):
 class SlurmBackend(object):
 
     initialized = attr.ib(default=False, init=False)
+    conn_cache = {}
 
     def run(self, experiment):
         assert Agent().get_keys(), "Add your private key to ssh agent using 'ssh-add' command"
 
         # configure fabric
         slurm_url = experiment.pop('slurm_url', '{}@{}'.format(PLGRID_USERNAME, PLGRID_HOST))
-        env['host_string'] = slurm_url
-        env['--connection-attempts'] = "5"
-        env['--timeout'] = "60"
+        if slurm_url in self.conn_cache:
+            self.connection = self.conn_cache[slurm_url]
+            LOGGER.info('REUSING cached connection')
+        else:
+            LOGGER.info('NEW connection connection')
+            self.connection = Connection(slurm_url)
+            self.conn_cache[slurm_url] = self.connection
+            
+        # env['host_string'] = slurm_url
+        # env['--connection-attempts'] = "5" - not supported!
+        # not ported yet: env['--timeout'] = "60" 
 
         # exclude config, it will be send separately via `send_config`
         experiment['exclude'].append(experiment['cmd']._experiment_config_path)
@@ -225,7 +230,7 @@ class SlurmBackend(object):
         
         SCmd = {'sbatch': SBatchWrapperCmd, 'srun': SRunWrapperCmd}[experiment.cmd_type]
         cmd = SCmd(experiment=experiment, script_path=remote_script_path)
-        self._fabric_run(cmd.command)
+        self._fabric_run(cmd.command, warn = False)
 
     def ensure_directories(self, experiment):
         self._ensure_dir(experiment.experiment_scratch_dir)
@@ -234,7 +239,7 @@ class SlurmBackend(object):
             self.initialized = True
 
     def cache_code(self, experiment, archive_remote_path):
-        if files.exists(archive_remote_path):
+        if self._file_exists(archive_remote_path):
             return
         
         paths_to_dump = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=experiment.paths_to_copy)
@@ -249,28 +254,31 @@ class SlurmBackend(object):
             self._put(temp_file.name, archive_remote_path)
         
     def deploy_code(self, experiment, archive_remote_path):
-        with cd(experiment.experiment_scratch_dir):
-            self._fabric_run('tar xf {tar_filename}'.format(tar_filename=archive_remote_path))
+        cd = f'cd {experiment.experiment_scratch_dir} ;  '
+        self._fabric_run(cd + 'tar xvf {tar_filename}'.format(tar_filename=archive_remote_path))
     
     def send_config(self, experiment):
-        self._put(experiment.cmd._experiment_config_path, experiment.experiment_scratch_dir, relative=True)
+        l = experiment.cmd._experiment_config_path
+        r = experiment.experiment_scratch_dir + '/' + l
+        self._ensure_dir(Path(r).parent)
+        self._put(l, r)
 
     def send_script(self, script, remote_script_path):
         self._put(script.path, remote_script_path)
 
-    @staticmethod
-    def _put(local_path, remote_path, quiet=True, relative=False):
-        extra_opts = '{} {}'.format('-q' if quiet else '', '--relative' if relative else '')
-        ssh_opts = '-q' if quiet else ''
-        rsync_project(remote_path, local_path, ssh_opts=ssh_opts, extra_opts=extra_opts)
+    def _put(self,local_path, remote_path):
+        LOGGER.info('SSH: put local file %s as remote %s', local_path, remote_path)        
+        self.connection.put(local_path, remote_path)
 
-    @staticmethod
-    def _ensure_dir(directory_path):
-        SlurmBackend._fabric_run('mkdir -p {path}'.format(path=directory_path))
+    def _ensure_dir(self,directory_path):
+        self._fabric_run('mkdir -p {path}'.format(path=directory_path))
 
-    @staticmethod
-    def _fabric_run(cmd):
-        return fabric_run(cmd)
+    def _fabric_run(self,cmd, warn=False):
+        LOGGER.info("SSH: running command '%s'",cmd)
+        return self.connection.run(cmd, warn=warn)
+
+    def _file_exists(self, fname):
+        return self._fabric_run(f'stat {fname}', warn=True).ok
 
 _slurm_backend = None
 def get_slurm_backend():

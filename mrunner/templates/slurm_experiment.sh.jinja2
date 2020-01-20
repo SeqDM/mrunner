@@ -25,7 +25,9 @@ pip install -r {{ experiment.requirements_file }}
 {%- endif %}
 {% set mpi_prefix = 'mpiexec ' if experiment.with_mpi else '' %}
 {% set sif_prefix = 'singularity exec %s ' % experiment.singularity_container if experiment.singularity_container else '' %}
-{%- if experiment.after_module_load_cmd %}
-{{ experiment.after_module_load_cmd }}
+export SINGULARITY_PREFIX="{{ sif_prefix }} "
+{%- if experiment.prolog_cmd %}
+{{ experiment.prolog_cmd }}
 {%- endif %}
 {{ mpi_prefix }}{{ sif_prefix }}{{ experiment.cmd.command }}
+

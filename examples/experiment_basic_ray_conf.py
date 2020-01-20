@@ -10,7 +10,7 @@ if "NEPTUNE_API_TOKEN" not in os.environ or "NEPTUNE_PROJECT_NAME" not in os.env
     exit(1)
 
 exp = Experiment(name='Basic ray experiment',
-                 script='python experiment_ray_basic.py',
+                 script='python3 experiment_ray_basic.py',
                  project=os.environ["NEPTUNE_PROJECT_NAME"],
                  tags=['test_experiments'],
                  env={"NEPTUNE_API_TOKEN": os.environ["NEPTUNE_API_TOKEN"],

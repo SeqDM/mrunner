@@ -16,6 +16,22 @@
      storage_dir: /net/archive/groups/plggluna/<username>
      venv: /net/people/<username>/mrunner_example_env
 
+   prometheus_cpu_ray:
+     account: <grantname>
+     backend_type: slurm
+     cmd_type: sbatch
+     modules_to_load:
+     - plgrid/tools/python/3.6.5
+     prolog_cmd: source resources/ray_slurm_cluster.sh
+     partition: plgrid-testing
+     time: 59
+     nodes: 2
+     cpu: 2
+     mem: 5G
+     slurm_url: <username>@pro.cyfronet.pl
+     storage_dir: /net/archive/groups/plggluna/<username>
+     venv: /net/people/<username>/mrunner_example_env
+
    eagle_cpu:
      account: <grantname>
      backend_type: slurm

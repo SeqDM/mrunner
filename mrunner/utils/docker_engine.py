@@ -35,12 +35,10 @@ class DockerFile(GeneratedTemplateFile):
     DEFAULT_DOCKERFILE_TEMPLATE = 'Dockerfile.jinja2'
 
     def __init__(self, experiment, requirements_file):
-        experiment_data = attr.asdict(experiment)
         # paths in command shall be relative
-        cmd = experiment_data.pop('cmd')
-        updated_cmd = self._rewrite_paths(experiment.cwd, cmd.command)
+        updated_cmd = self._rewrite_paths(experiment.cwd, experiment.cmd.command)
         paths_to_copy = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=experiment.paths_to_copy)
-        experiment = attr.evolve(experiment, cmd=StaticCmd(command=updated_cmd, env=cmd.env))
+        experiment = attr.evolve(experiment, cmd=StaticCmd(command=updated_cmd, env=experiment.env))
 
         super(DockerFile, self).__init__(template_filename=self.DEFAULT_DOCKERFILE_TEMPLATE,
                                          experiment=experiment, requirements_file=requirements_file,
@@ -121,7 +119,7 @@ class DockerEngine(object):
         return image_name
 
     def _generate_requirements_name(self, experiment):
-        return 'requirements_{}_{}.txt'.format(experiment.project, experiment.name)
+        return 'requirements_{}_{}.txt'.format(experiment.project.replace("/", "_"), experiment.name)
 
     def _generate_repository_name(self, experiment):
         image_name = '{}/{}'.format(experiment.project, experiment.name)
@@ -144,8 +142,8 @@ class DockerEngine(object):
 
     def _get_neptune_build_args(self, experiment):
         args = {}
-        if experiment.local_neptune_token:
-            rel_path = Path('~').relpathto(experiment.local_neptune_token.path)
-            args['NEPTUNE_TOKEN'] = experiment.local_neptune_token.content
-            args['NEPTUNE_TOKEN_PATH'] = str(Path('/root').joinpath(rel_path))
+        # if experiment.local_neptune_token:
+        #     rel_path = Path('~').relpathto(experiment.local_neptune_token.path)
+        #     args['NEPTUNE_TOKEN'] = experiment.local_neptune_token.content
+        #     args['NEPTUNE_TOKEN_PATH'] = str(Path('/root').joinpath(rel_path))
         return args

@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _generate_project_namespace(args):
-    return re.sub(r'[ .,_-]+', '-', args.project)
+    return re.sub(r'[ .,_/-]+', '-', args.project)
 
 
 def _extract_cmd_without_params(args):
@@ -61,7 +61,9 @@ class Job(client.V1Job):
 
         envs = {k: str(v) for k, v in experiment.env.items()}
 
-        resources = dict([self._map_resources(name, qty) for name, qty in experiment.resources.items()])
+        resources_types = ['cpu', 'gpu', 'mem']
+        resources = {t: getattr(experiment, t) for t in resources_types if getattr(experiment, t) != {}}
+        resources = dict([self._map_resources(name, qty) for name, qty in resources.items()])
 
         internal_volume_name = 'experiment-storage'
         vol = client.V1Volume(name=internal_volume_name,

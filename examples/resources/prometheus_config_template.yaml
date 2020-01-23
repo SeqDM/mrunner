@@ -30,4 +30,12 @@
      storage_dir: /home/plgrid/<username>
      venv: /home/plgrid/<username>/mrunner_example_env
 
+   test_kube:
+     backend_type: kubernetes
+     storage_dir: "/tmp"
+     registry_url: "https://gcr.io"
+     google_project_id: "warsaw-zpp"
+     #     gpu:  1
+     cpu: 1
+     mem: 2G
  current_context: prometheus_cpu

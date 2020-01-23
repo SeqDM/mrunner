@@ -19,3 +19,15 @@ Run experiments
 ```
 run_examples.sh
 ```
+
+To run on GCP create and download Service Account Key 
+https://cloud.google.com/docs/authentication/production
+```
+export GOOGLE_APPLICATION_CREDENTIALS = /path/to/key.json
+
+```
+
+To test if works try
+```
+mrunner --config resources/prometheus_config_template.yaml --context test_kube run experiment_gcp_conf.py --base_image loss/gfootball --requirements_file resources/requirements.txt 
+```

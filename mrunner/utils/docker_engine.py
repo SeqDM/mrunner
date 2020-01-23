@@ -95,9 +95,7 @@ class DockerEngine(object):
         # build image; use cache if possible
         LOGGER.debug(Path(dockerfile.path).text())
         LOGGER.debug('Building docker image')
-        neptune_build_args = self._get_neptune_build_args(experiment)
         image, _ = self._client.images.build(path=experiment.cwd, tag=repository_name,
-                                             buildargs=neptune_build_args,
                                              dockerfile=dockerfile_rel_path, pull=True, rm=True, forcerm=True)
 
         is_image_updated = not old_image or old_image.id != image.id
@@ -139,11 +137,3 @@ class DockerEngine(object):
     def _get_tag(self):
         from datetime import datetime
         return datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-
-    def _get_neptune_build_args(self, experiment):
-        args = {}
-        # if experiment.local_neptune_token:
-        #     rel_path = Path('~').relpathto(experiment.local_neptune_token.path)
-        #     args['NEPTUNE_TOKEN'] = experiment.local_neptune_token.content
-        #     args['NEPTUNE_TOKEN_PATH'] = str(Path('/root').joinpath(rel_path))
-        return args

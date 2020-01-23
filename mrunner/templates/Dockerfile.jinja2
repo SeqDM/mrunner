@@ -2,8 +2,6 @@ FROM {{ experiment.base_image }}
 
 ARG EXP_DIR=/experiment
 ARG STORAGE_DIR={{ experiment.storage_dir }}
-ARG NEPTUNE_TOKEN=missing
-ARG NEPTUNE_TOKEN_PATH=/root/.neptune/tokens/token
 
 {%- for key, val in experiment.env.items() %}
 ENV {{ key }}={{ val }}

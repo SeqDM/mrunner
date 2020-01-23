@@ -60,7 +60,7 @@ EXPERIMENT_OPTIONAL_FIELDS = [
     ('nodes', dict(default=None)),
     ('modules_to_load', dict(default=attr.Factory(list), type=list)),
     ('sbatch_options', dict(default=attr.Factory(list), type=list)),
-    ('after_module_load_cmd', dict(default='')),
+    ('prolog_cmd', dict(default='')),
     ('cmd_type', dict(default='srun')),
     ('requirements_file', dict(default=(None))),
     ('venv', dict(default=(None))),  # path to virtual environment

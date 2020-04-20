@@ -150,7 +150,8 @@ def logger(m, v):
         import neptune
         from PIL import Image
         m = m.lstrip().rstrip()  # This is to circumvent neptune's bug
-        if type(v) == Image.Image:
+        is_plot = type(v).__module__ == 'matplotlib.figure' and type(v).__name__ == 'Figure' 
+        if type(v) == Image.Image or is_plot:
             experiment_.send_image(m, v)
         else:
             experiment_.send_metric(m, v)

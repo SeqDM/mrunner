@@ -58,6 +58,9 @@ EXPERIMENT_OPTIONAL_FIELDS = [
     ('time', dict(default=None)),
     ('ntasks', dict(default=None)),
     ('nodes', dict(default=None)),
+    ('qos', dict(default=None)),
+    ('nodelist', dict(default=None)),
+    ('exclude_nodes', dict(default=None)),
     ('modules_to_load', dict(default=attr.Factory(list), type=list)),
     ('sbatch_options', dict(default=attr.Factory(list), type=list)),
     ('prolog_cmd', dict(default='')),
@@ -123,6 +126,9 @@ class SlurmWrappersCmd(object):
         _extend_cmd_items(cmd_items, '-o', 'log_output_path', default_log_path)  # output
         _extend_cmd_items(cmd_items, '-p', 'partition')
         _extend_cmd_items(cmd_items, '-t', 'time')
+        _extend_cmd_items(cmd_items, '--qos', 'qos')
+        _extend_cmd_items(cmd_items, '--nodelist', 'nodelist')
+        _extend_cmd_items(cmd_items, '--exclude', 'exclude_nodes')
 
         cmd_items += self._resources_items()
         cmd_items += [self._script_path]

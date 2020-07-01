@@ -60,7 +60,7 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
             project_name = os.environ.get("NEPTUNE_PROJECT_NAME")
 
         if display_neptune_link:
-            link = f'https://ui.neptune.ml/{project_name}/experiments?tag=%5B%22{random_name}%22%5D'
+            link = f'https://ui.neptune.ai/o/pmtest/org/football/experiments?viewId=standard-view&sortBy=%5B%22timeOfCreation%22%5D&sortDirection=%5B%22descending%22%5D&sortFieldType=%5B%22native%22%5D&trashed=false&tags=%5B%22{random_name}%22%5D&lbViewUnpacked=true'
             if copy_neptune_link:
                 import pyperclip
                 # Fix for systems without copy/paste mechanism (like singularity container).

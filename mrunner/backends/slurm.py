@@ -203,9 +203,9 @@ class SlurmBackend(object):
         slurm_url = experiment.pop('slurm_url', '{}@{}'.format(PLGRID_USERNAME, PLGRID_HOST))
         if slurm_url in self.conn_cache:
             self.connection = self.conn_cache[slurm_url]
-            LOGGER.info('REUSING cached connection')
+            LOGGER.debug('REUSING cached connection')
         else:
-            LOGGER.info('NEW connection connection')
+            LOGGER.debug('NEW connection connection')
             self.connection = Connection(slurm_url)
             self.conn_cache[slurm_url] = self.connection
             
@@ -261,7 +261,7 @@ class SlurmBackend(object):
         
     def deploy_code(self, experiment, archive_remote_path):
         cd = f'cd {experiment.experiment_scratch_dir} ;  '
-        self._fabric_run(cd + 'tar xvf {tar_filename}'.format(tar_filename=archive_remote_path))
+        self._fabric_run(cd + 'tar xvf {tar_filename} > /dev/null'.format(tar_filename=archive_remote_path))
     
     def send_config(self, experiment):
         l = experiment.cmd._experiment_config_path

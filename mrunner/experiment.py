@@ -50,6 +50,8 @@ class Experiment(object):
     unique_name = attr.ib(default=attr.Factory(get_unique_name, takes_self=True))
     git_info = attr.ib(default=None)
     with_mpi = attr.ib(default=False)
+    restore_from_path = attr.ib(default=None)
+    send_code = attr.ib(default=True)
 
     def to_dict(self):
         return attr.asdict(self)

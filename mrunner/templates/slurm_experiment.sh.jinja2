@@ -4,6 +4,11 @@
 {%- endfor %}
 set -e
 cd {{ experiment.experiment_scratch_dir }}
+
+{%- if experiment.restore_from_path %}
+cp -ru {{ experiment.restore_from_path }} .
+{%- endif %}
+
 {%- for module_name in experiment.modules_to_load %}
 module load {{ module_name }}
 {%- endfor %}
@@ -15,7 +20,7 @@ if [ ! -f {{ experiment.venv }}/bin/activate ]; then
     echo "==============================================="
     echo "Virtual env does not exists. Trying to setup"
     echo "Works only with python3"
-    python3 -m venv {{ experiment.venv }}
+    python3 -m venv {{ experiment.venv }}`
     echo "==============================================="
 fi
 source {{ experiment.venv }}/bin/activate

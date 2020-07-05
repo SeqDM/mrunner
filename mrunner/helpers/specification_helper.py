@@ -92,11 +92,16 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
         config = copy.deepcopy(base_config)
         config.update(params_configuration)
         config = Munch(config)
+        restore_from_path = None
+        send_code = True
+        if 'restore_from_path' in config:
+            restore_from_path = config.pop('restore_from_path')
+            send_code = config.pop('send_code')
 
         experiments.append(Experiment(project=project_name, name=experiment_name, script=script,
                                       parameters=config, paths_to_copy=paths_to_copy, tags=tags, env=env,
                                       exclude=exclude, git_info=git_info, random_name=random_name,
-                                      with_mpi=with_mpi))
+                                      with_mpi=with_mpi, restore_from_path=restore_from_path, send_code=send_code))
 
     return experiments
 

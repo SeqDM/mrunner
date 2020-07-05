@@ -68,6 +68,8 @@ EXPERIMENT_OPTIONAL_FIELDS = [
     ('requirements_file', dict(default=(None))),
     ('venv', dict(default=(None))),  # path to virtual environment
     ('singularity_container', dict(default=(None))),  # path to virtual environment
+    ('restore_from_path', dict(default=None)),
+    ('send_code', dict(default=None))
 ]
 
 EXPERIMENT_FIELDS = COMMON_EXPERIMENT_MANDATORY_FIELDS + EXPERIMENT_MANDATORY_FIELDS + \
@@ -245,6 +247,8 @@ class SlurmBackend(object):
             self.initialized = True
 
     def cache_code(self, experiment, archive_remote_path):
+        if not experiment.send_code:
+            return
         if self._file_exists(archive_remote_path):
             return
         
@@ -260,6 +264,8 @@ class SlurmBackend(object):
             self._put(temp_file.name, archive_remote_path)
         
     def deploy_code(self, experiment, archive_remote_path):
+        if not experiment.send_code:
+            return
         cd = f'cd {experiment.experiment_scratch_dir} ;  '
         self._fabric_run(cd + 'tar xvf {tar_filename} > /dev/null'.format(tar_filename=archive_remote_path))
     

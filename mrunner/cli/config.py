@@ -25,7 +25,7 @@ class ConfigParser(object):
         config = Config()
         if self._config_path.exists():
             with self._config_path.open('r') as conf_file:
-                config = Config(**yaml.load(conf_file) or {})
+                config = Config(**yaml.full_load(conf_file) or {})
 
         return config
 

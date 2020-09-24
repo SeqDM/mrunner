@@ -13,15 +13,22 @@ logger_ = logging.getLogger(__name__)
 
 def inject_dict_to_gin(dict, scope=None):
     import gin
-    bindings = []
-    scope_str = "" if scope is None else f"{scope}/"
+    gin_bindings = []
     for key, value in dict.items():
-        if type(value) is str and (value[0] == "@" or value[0] == "%"):
-            # value = '"' + value + '"' if type(value) is str else value
-            bindings.append(f"{scope_str}{key} = {value}")
+        if key == 'imports':
+            for module_str in value:
+                binding = f'import {module_str}'
+                gin_bindings.append(binding)
+            continue
+
+        if isinstance(value, str) and not value[0] in (
+        '@', '%', '{', '(', '['):
+            binding = f'{key} = "{value}"'
         else:
-            gin.bind_parameter(key, value)
-    gin.parse_config(bindings)
+            binding = f'{key} = {value}'
+        gin_bindings.append(binding)
+
+    gin.parse_config(gin_bindings)
 
 
 def nest_params(params, prefixes):
@@ -150,7 +157,7 @@ def logger(m, v):
         import neptune
         from PIL import Image
         m = m.lstrip().rstrip()  # This is to circumvent neptune's bug
-        is_plot = type(v).__module__ == 'matplotlib.figure' and type(v).__name__ == 'Figure' 
+        is_plot = type(v).__module__ == 'matplotlib.figure' and type(v).__name__ == 'Figure'
         if type(v) == Image.Image or is_plot:
             experiment_.send_image(m, v)
         else:

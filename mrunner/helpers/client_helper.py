@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import re
 import socket
 from munch import Munch
 import cloudpickle
@@ -62,7 +63,8 @@ def nest_params(params, prefixes):
 
 def get_configuration(
         print_diagnostics=False, with_neptune=False,
-        inject_parameters_to_gin=False, nesting_prefixes=()
+        inject_parameters_to_gin=False, nesting_prefixes=(),
+        env_to_properties_regexp=".*PWD"
 ):
     # with_neptune might be also an id of an experiment
     global experiment_
@@ -119,7 +121,8 @@ def get_configuration(
                    logger_.warn("Not possible to send to neptune:{}. Implement __str__".format(param_name))
 
             # Set pwd property with path to experiment.
-            properties = {"pwd": os.getcwd()}
+            properties = {key: os.environ[key] for key in os.environ
+                          if re.match(env_to_properties_regexp, key)}
             neptune.create_experiment(name=experiment.name, tags=experiment.tags,
                                       params=params, properties=properties,
                                       git_info=git_info)

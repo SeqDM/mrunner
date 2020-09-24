@@ -126,12 +126,16 @@ def run(ctx, spec, requirements_file, base_image, script, params):
             experiment['cmd'] = WrapperCmd(cmd=cmd, experiment_config_path=config_path)
             
             num_of_reties = 5
+            ok = None
             for i in range(num_of_reties):
                 try:
                     get_backend(experiment['backend_type']).run(experiment=experiment)
+                    ok=True
                     break
                 except Exception as e:
                     print(f"Caught exception: {e}. Retrying until {num_of_reties} times")
+                    ok = False
+            if not ok:
                 raise RuntimeError(f"Failed for {num_of_reties} times. Give up.")
 
     finally:

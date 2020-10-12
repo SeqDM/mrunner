@@ -3,7 +3,15 @@
 #SBATCH {{ sbatch_option }}
 {%- endfor %}
 set -e
-cd {{ experiment.experiment_scratch_dir }}
+
+echo $SLURM_ARRAY_TASK_ID
+
+# Fork
+
+mkdir {{ experiment.experiment_scratch_dir }}_$SLURM_ARRAY_TASK_ID
+cp -r {{ experiment.experiment_scratch_dir }}/* {{ experiment.experiment_scratch_dir }}_$SLURM_ARRAY_TASK_ID
+
+cd {{ experiment.experiment_scratch_dir }}_$SLURM_ARRAY_TASK_ID
 
 {%- if experiment.restore_from_path %}
 cp -ru {{ experiment.restore_from_path }} .

@@ -79,19 +79,19 @@ def _merge_experiment_parameters(cli_kwargs, context):
 def _load_py_experiment(script, spec, *, dump_dir):
     LOGGER.info('Found {} function in {}; will use it as experiments configuration generator'.format(spec, script))
 
-    def _create_and_dump_config(spec_params, dump_dir):
-        config_path = dump_dir / 'config.pkl'
+    def _create_and_dump_config(spec_params, dump_dir, idx):
+        config_path = dump_dir / 'config_{}'.format(idx)
         with open(config_path, "wb") as file:
             cloudpickle.dump(spec_params, file)
-            
+
         return config_path
 
     experiments_list = get_experiments_list(script, spec)
-    for experiment in experiments_list:
+    for idx, experiment in enumerate(experiments_list):
         spec_params = experiment.to_dict()
         spec_params['name'] = re.sub(r'[ .,_-]+', '-', spec_params['name'].lower())
 
-        config_path = _create_and_dump_config(spec_params, dump_dir)
+        config_path = _create_and_dump_config(spec_params, dump_dir, idx)
 
         yield config_path, spec_params
 
@@ -116,7 +116,7 @@ def get_experiments_list(script, spec):
         exec(open(script).read(), vars)
         _experiment_list = vars.get(spec, None)
         if _experiment_list is None:
-            print("The expriement file was loaded but the {} "
+            print("The experiment file was loaded but the {} "
                   "variable is not set. Exiting".format(spec))
             exit(1)
 

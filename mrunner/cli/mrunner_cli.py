@@ -118,25 +118,28 @@ def run(ctx, spec, requirements_file, base_image, script, params):
         script_path = Path(script)
         dump_dir = script_path.parent / 'dump_{}'.format(script_path.stem)
         dump_dir.makedirs_p()
+        experiments = []
 
         for config_path, experiment in generate_experiments(script, context, spec=spec, dump_dir=dump_dir):
             experiment.update({'base_image': base_image, 'requirements': requirements})
 
             cmd = ' '.join([experiment.pop('script')] + list(params))
             experiment['cmd'] = WrapperCmd(cmd=cmd, experiment_config_path=config_path)
-            
-            num_of_reties = 5
-            ok = None
-            for i in range(num_of_reties):
-                try:
-                    get_backend(experiment['backend_type']).run(experiment=experiment)
-                    ok=True
-                    break
-                except Exception as e:
-                    print(f"Caught exception: {e}. Retrying until {num_of_reties} times")
-                    ok = False
-            if not ok:
-                raise RuntimeError(f"Failed for {num_of_reties} times. Give up.")
+
+            experiments.append(experiment)
+
+        num_of_reties = 5
+        ok = None
+        for i in range(num_of_reties):
+            try:
+                get_backend(experiment['backend_type']).run(experiments=experiments)
+                ok=True
+                break
+            except Exception as e:
+                print(f"Caught exception: {e}. Retrying until {num_of_reties} times")
+                ok = False
+        if not ok:
+            raise RuntimeError(f"Failed for {num_of_reties} times. Give up.")
 
     finally:
         if dump_dir:

@@ -64,7 +64,7 @@ class WrapperCmd(object):
     @property
     def command(self):
         cmd = self._cmd.split(' ') if isinstance(self._cmd, six.string_types) else self._cmd
-        config_argv = ['--config', str(self._experiment_config_path)]
+        config_argv = ['--config', "config_$SLURM_ARRAY_TASK_ID"]
         cmd = cmd + config_argv
         return ' '.join(cmd)
 

@@ -25,7 +25,7 @@ def generate_scratch_dir(experiment):
 
 def generate_cache_dir(experiment):
     return experiment.scratch_dir / pathify(DEFAULT_CACHE_DIR)
-    
+
 def generate_project_scratch_dir(experiment):
     return experiment.scratch_dir / pathify(experiment.project.split('/')[-1])
 
@@ -99,9 +99,10 @@ class ExperimentScript(GeneratedTemplateFile):
 
 class SlurmWrappersCmd(object):
 
-    def __init__(self, experiment, script_path):
+    def __init__(self, experiment, script_path, array_size):
         self._experiment = experiment
         self._script_path = script_path
+        self.array_str = rf"0-{array_size-1}"
 
     @property
     def command(self):
@@ -122,8 +123,7 @@ class SlurmWrappersCmd(object):
 
         default_log_path = \
             self._experiment.experiment_scratch_dir /\
-            self._experiment.cmd._experiment_config_path.parent /\
-            'slurm.log' if self._cmd == 'sbatch' else None
+            'slurm_%a.log' if self._cmd == 'sbatch' else None
         _extend_cmd_items(cmd_items, '-A', 'account')
         _extend_cmd_items(cmd_items, '-o', 'log_output_path', default_log_path)  # output
         _extend_cmd_items(cmd_items, '-p', 'partition')
@@ -131,6 +131,7 @@ class SlurmWrappersCmd(object):
         _extend_cmd_items(cmd_items, '--qos', 'qos')
         _extend_cmd_items(cmd_items, '--nodelist', 'nodelist')
         _extend_cmd_items(cmd_items, '--exclude', 'exclude_nodes')
+        _extend_cmd_items(cmd_items, '--array', 'array_str')
 
         cmd_items += self._resources_items()
         cmd_items += [self._script_path]
@@ -198,9 +199,10 @@ class SlurmBackend(object):
     initialized = attr.ib(default=False, init=False)
     conn_cache = {}
 
-    def run(self, experiment):
+    def run(self, experiments):
         assert Agent().get_keys(), "Add your private key to ssh agent using 'ssh-add' command"
 
+        experiment = experiments[0]  # Assume that all experiments share deployment config. This should be reflected in all code.
         # configure fabric
         slurm_url = experiment.pop('slurm_url', '{}@{}'.format(PLGRID_USERNAME, PLGRID_HOST))
         if slurm_url in self.conn_cache:
@@ -210,14 +212,15 @@ class SlurmBackend(object):
             LOGGER.debug('NEW connection connection')
             self.connection = Connection(slurm_url)
             self.conn_cache[slurm_url] = self.connection
-            
+
         # env['host_string'] = slurm_url
         # env['--connection-attempts'] = "5" - not supported!
-        # not ported yet: env['--timeout'] = "60" 
+        # not ported yet: env['--timeout'] = "60"
 
         # exclude config, it will be send separately via `send_config`
         experiment['exclude'].append(experiment['cmd']._experiment_config_path)
-        
+
+
         # create Slurm experiment
         slurm_scratch_dir = experiment['storage_dir']
         experiment = ExperimentRunOnSlurm(slurm_scratch_dir=slurm_scratch_dir, slurm_url=slurm_url,
@@ -227,18 +230,20 @@ class SlurmBackend(object):
         script = ExperimentScript(experiment)
         remote_script_path = experiment.project_scratch_dir / script.script_name
         archive_remote_path = experiment.cache_dir / experiment.unique_name
-        
+
         LOGGER.debug('Configuration: {}'.format(experiment))
 
         self.ensure_directories(experiment)
         self.cache_code(experiment, archive_remote_path)
         self.deploy_code(experiment, archive_remote_path)
-        self.send_config(experiment)
+
+        for e in experiments:
+            self.send_config(e, experiment.experiment_scratch_dir)
         self.send_script(script, remote_script_path)
-        
+
         SCmd = {'sbatch': SBatchWrapperCmd, 'srun': SRunWrapperCmd}[experiment.cmd_type]
-        cmd = SCmd(experiment=experiment, script_path=remote_script_path)
-        self._fabric_run(cmd.command, warn = False)
+        cmd = SCmd(experiment=experiment, script_path=remote_script_path, array_size=len(experiments))
+        self._fabric_run(cmd.command, warn=False)
 
     def ensure_directories(self, experiment):
         self._ensure_dir(experiment.experiment_scratch_dir)
@@ -251,7 +256,7 @@ class SlurmBackend(object):
             return
         if self._file_exists(archive_remote_path):
             return
-        
+
         paths_to_dump = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=experiment.paths_to_copy)
         with tempfile.NamedTemporaryFile(suffix='.tar.gz') as temp_file:
             # archive all files
@@ -259,27 +264,27 @@ class SlurmBackend(object):
                 for p in paths_to_dump:
                     LOGGER.debug('Adding "{}" to deployment archive'.format(p.rel_remote_path))
                     tar_file.add(p.local_path, arcname=p.rel_remote_path)
-                
+
             # upload archive to cluster and extract
             self._put(temp_file.name, archive_remote_path)
-        
+
     def deploy_code(self, experiment, archive_remote_path):
         if not experiment.send_code:
             return
         cd = f'cd {experiment.experiment_scratch_dir} ;  '
         self._fabric_run(cd + 'tar xvf {tar_filename} > /dev/null'.format(tar_filename=archive_remote_path))
-    
-    def send_config(self, experiment):
-        l = experiment.cmd._experiment_config_path
-        r = experiment.experiment_scratch_dir + '/' + l
-        self._ensure_dir(Path(r).parent)
-        self._put(l, r)
+
+    def send_config(self, experiment, remote_dir):
+        l = experiment['cmd']._experiment_config_path
+        # r = experiment.experiment_scratch_dir + '/' + l
+        # self._ensure_dir(Path(r).parent)
+        self._put(l, remote_dir)
 
     def send_script(self, script, remote_script_path):
         self._put(script.path, remote_script_path)
 
     def _put(self,local_path, remote_path):
-        LOGGER.info('SSH: put local file %s as remote %s', local_path, remote_path)        
+        LOGGER.info('SSH: put local file %s as remote %s', local_path, remote_path)
         self.connection.put(local_path, remote_path)
 
     def _ensure_dir(self,directory_path):

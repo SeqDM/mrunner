@@ -213,14 +213,6 @@ class SlurmBackend(object):
             self.connection = Connection(slurm_url)
             self.conn_cache[slurm_url] = self.connection
 
-        # env['host_string'] = slurm_url
-        # env['--connection-attempts'] = "5" - not supported!
-        # not ported yet: env['--timeout'] = "60"
-
-        # exclude config, it will be send separately via `send_config`
-        experiment['exclude'].append(experiment['cmd']._experiment_config_path)
-
-
         # create Slurm experiment
         slurm_scratch_dir = experiment['storage_dir']
         experiment = ExperimentRunOnSlurm(slurm_scratch_dir=slurm_scratch_dir, slurm_url=slurm_url,
@@ -236,9 +228,6 @@ class SlurmBackend(object):
         self.ensure_directories(experiment)
         self.cache_code(experiment, archive_remote_path)
         self.deploy_code(experiment, archive_remote_path)
-
-        for e in experiments:
-            self.send_config(e, experiment.experiment_scratch_dir)
         self.send_script(script, remote_script_path)
 
         SCmd = {'sbatch': SBatchWrapperCmd, 'srun': SRunWrapperCmd}[experiment.cmd_type]
@@ -257,7 +246,11 @@ class SlurmBackend(object):
         if self._file_exists(archive_remote_path):
             return
 
-        paths_to_dump = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=experiment.paths_to_copy)
+        paths_to_copy = experiment.paths_to_copy \
+            if experiment.paths_to_copy is not None else []
+        paths_to_copy.\
+            append(rf"{experiment.cmd._experiment_config_path.dirname()}:.")
+        paths_to_dump = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=paths_to_copy)
         with tempfile.NamedTemporaryFile(suffix='.tar.gz') as temp_file:
             # archive all files
             with tarfile.open(temp_file.name, 'w:gz') as tar_file:
@@ -273,12 +266,6 @@ class SlurmBackend(object):
             return
         cd = f'cd {experiment.experiment_scratch_dir} ;  '
         self._fabric_run(cd + 'tar xvf {tar_filename} > /dev/null'.format(tar_filename=archive_remote_path))
-
-    def send_config(self, experiment, remote_dir):
-        l = experiment['cmd']._experiment_config_path
-        # r = experiment.experiment_scratch_dir + '/' + l
-        # self._ensure_dir(Path(r).parent)
-        self._put(l, remote_dir)
 
     def send_script(self, script, remote_script_path):
         self._put(script.path, remote_script_path)

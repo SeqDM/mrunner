@@ -34,6 +34,20 @@ def get_default_config_path(ctx):
     return app_dir / default_config_file_name
 
 
+after_run_callbacks = []
+
+
+def register_after_run_callback(callback):
+    """Registers a callback to be called after each invocation of `run`.
+
+    For now only supports the SLURM backend.
+
+    Args:
+        callback: Function (backends.slurm.ExperimentRunOnSlurm, [experiment.Experiment]) -> None.
+    """
+    after_run_callbacks.append(callback)
+
+
 @click.group()
 @click.option('--debug/--no-debug', default=False, help='Enable debug messages')
 @click.option('--config', default=None, type=click.Path(dir_okay=False),
@@ -130,9 +144,10 @@ def run(ctx, spec, requirements_file, base_image, script, params):
 
         num_of_reties = 5
         ok = None
+        result = None
         for i in range(num_of_reties):
             try:
-                get_backend(experiment['backend_type']).run(experiments=experiments)
+                result = get_backend(experiment['backend_type']).run(experiments=experiments)
                 ok=True
                 break
             except Exception as e:
@@ -144,6 +159,12 @@ def run(ctx, spec, requirements_file, base_image, script, params):
     finally:
         if dump_dir:
             dump_dir.rmtree_p()
+
+    # Call the registered callbacks.
+    if result is not None:
+        (sweep, experiments) = result
+        for callback in after_run_callbacks:
+            callback(sweep, experiments)
 
 
 cli.add_command(context_cli)

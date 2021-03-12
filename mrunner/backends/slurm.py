@@ -233,6 +233,7 @@ class SlurmBackend(object):
         SCmd = {'sbatch': SBatchWrapperCmd, 'srun': SRunWrapperCmd}[experiment.cmd_type]
         cmd = SCmd(experiment=experiment, script_path=remote_script_path, array_size=len(experiments))
         self._fabric_run(cmd.command, warn=False)
+        return (experiment, experiments)
 
     def ensure_directories(self, experiment):
         self._ensure_dir(experiment.experiment_scratch_dir)

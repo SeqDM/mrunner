@@ -82,7 +82,7 @@ def _load_py_experiment(script, spec, *, dump_dir):
     def _create_and_dump_config(spec_params, dump_dir, idx):
         config_path = dump_dir / 'config_{}'.format(idx)
         with open(config_path, "wb") as file:
-            cloudpickle.dump(spec_params, file)
+            cloudpickle.dump(spec_params, file, protocol=4)
 
         return config_path
 

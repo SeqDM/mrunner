@@ -3,7 +3,7 @@ from mrunner.helpers.specification_helper import create_experiments_helper
 import os
 
 if "NEPTUNE_API_TOKEN" not in os.environ or "NEPTUNE_PROJECT_NAME" not in os.environ:
-    print("Please set NEPTUNE_API_TOKEN and PROJECT_QUALIFIED_NAME env variables")
+    print("Please set NEPTUNE_API_TOKEN and NEPTUNE_PROJECT_NAME env variables")
     print("Their values can be from up.neptune.ml. Click help and then quickstart.")
     exit()
 

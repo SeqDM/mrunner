@@ -1,6 +1,8 @@
 import logging
 import os
 
+import mrunner.settings
+
 try:
     import neptune
 except ImportError:
@@ -38,6 +40,9 @@ class NeptuneHelper(object):
 
 def restore_helper(organization, project, id=None, tag=None, copy_mask='*',
                    send_code=None):
+    assert (not mrunner.settings.NEPTUNE_USE_NEW_API,
+            "Restore helper not yet supported with new neptune API!")
+
     if send_code is None:
         send_code = copy_mask != '*'
     print('send_code', send_code)
@@ -47,8 +52,8 @@ def restore_helper(organization, project, id=None, tag=None, copy_mask='*',
 
     path_list = [e.get_properties()['pwd'] + "/" + copy_mask for e in experiments]
     experiments_specs = [{'organization': organization,
-                          'project': project, 'id': e.id} for e in experiments ]
+                          'project': project, 'id': e.id} for e in experiments]
     return {'restore_from_path___': path_list,
             'neptune_parent_experiment_spec___': experiments_specs,
-            'send_code___': [send_code]*len(experiments_specs)
+            'send_code___': [send_code] * len(experiments_specs)
             }

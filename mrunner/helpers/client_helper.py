@@ -164,7 +164,6 @@ def get_configuration(
                 if type(with_neptune) == str:
                     logger_.info("Connecting to experiment:", with_neptune)
                     print_diagnostics = False
-                    neptune.init(project_qualified_name=experiment.project)
                     experiment_ = neptune.project.get_experiments(with_neptune)[0]
                 else:
                     neptune.create_experiment(name=experiment.name, tags=experiment.tags,

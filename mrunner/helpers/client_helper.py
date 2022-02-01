@@ -1,12 +1,16 @@
 import argparse
+import ast
+import atexit
 import datetime
+import logging
 import os
 import re
 import socket
-from munch import Munch
+
 import cloudpickle
-import ast
-import logging
+from munch import Munch
+
+import mrunner.settings
 
 experiment_ = None
 logger_ = logging.getLogger(__name__)
@@ -23,7 +27,7 @@ def inject_dict_to_gin(dict, scope=None):
             continue
 
         if isinstance(value, str) and not value[0] in (
-        '@', '%', '{', '(', '['):
+                '@', '%', '{', '(', '['):
             binding = f'{key} = "{value}"'
         else:
             binding = f'{key} = {value}'
@@ -109,15 +113,19 @@ def get_configuration(
 
     if inject_parameters_to_gin:
         logger_.info("The parameters of the form 'aaa.bbb' will be injected to gin.")
-        gin_params = {param_name:params[param_name] for param_name in params if "." in param_name}
+        gin_params = {param_name: params[param_name] for param_name in params if "." in param_name}
         inject_dict_to_gin(gin_params)
 
     if with_neptune:
         if 'NEPTUNE_API_TOKEN' not in os.environ:
             logger_.warning("Neptune will be not used.\nTo run with neptune please set your NEPTUNE_API_TOKEN variable")
         else:
-            import neptune
-            neptune.init(project_qualified_name=experiment.project)
+            if mrunner.settings.NEPTUNE_USE_NEW_API:
+                import neptune.new as neptune
+            else:
+                import neptune
+                neptune.init(project_qualified_name=experiment.project)
+
             params_to_sent_to_neptune = {}
             for param_name in params:
                 try:
@@ -132,20 +140,37 @@ def get_configuration(
             properties = {key: os.environ[key] for key in os.environ
                           if re.match(env_to_properties_regexp, key)}
 
-            neptune.create_experiment(name=experiment.name, tags=experiment.tags,
-                                      params=params, properties=properties,
-                                      git_info=git_info)
+            if mrunner.settings.NEPTUNE_USE_NEW_API:
+                if type(with_neptune) == str:
+                    logger_.info("Connecting to experiment:", with_neptune)
+                    print_diagnostics = False
+                    run_id = with_neptune
+                else:
+                    run_id = None
 
-            import atexit
-            atexit.register(neptune.stop)
-            experiment_ = neptune.get_experiment()
+                experiment_ = neptune.init(
+                    project=experiment.project,
+                    run=run_id,
+                    name=experiment.name,
+                    tags=experiment.tags,
+                )
+                experiment_["parameters"] = params
+                experiment_["properties"] = properties
+                # TODO: How to properly pass git info?
+                experiment_["git_info"] = git_info
 
-    if type(with_neptune) == str:
-        import neptune
-        logger_.info("Connecting to experiment:", with_neptune)
-        print_diagnostics = False
-        neptune.init(project_qualified_name=experiment.project)
-        experiment_ = neptune.project.get_experiments(with_neptune)[0]
+                atexit.register(experiment_.stop)
+            else:
+                if type(with_neptune) == str:
+                    logger_.info("Connecting to experiment:", with_neptune)
+                    print_diagnostics = False
+                    experiment_ = neptune.project.get_experiments(with_neptune)[0]
+                else:
+                    neptune.create_experiment(name=experiment.name, tags=experiment.tags,
+                                              params=params, properties=properties,
+                                              git_info=git_info)
+                    experiment_ = neptune.get_experiment()
+                atexit.register(neptune.stop)
 
     if print_diagnostics:
         logger_.info("PYTHONPATH:{}".format(os.environ.get('PYTHONPATH', 'not_defined')))
@@ -169,7 +194,10 @@ def get_configuration(
     if config_file is None:
         nest_params(params, nesting_prefixes)
         if experiment_:
-            params['experiment_id'] = experiment_.id
+            if mrunner.settings.NEPTUNE_USE_NEW_API:
+                params['experiment_id'] = experiment_["sys/id"].fetch()
+            else:
+                params['experiment_id'] = experiment_.id
         else:
             params['experiment_id'] = None
 
@@ -180,13 +208,15 @@ def logger(m, v):
     global experiment_
 
     if experiment_:
-        import neptune
         from PIL import Image
         m = m.lstrip().rstrip()  # This is to circumvent neptune's bug
         is_plot = type(v).__module__ == 'matplotlib.figure' and type(v).__name__ == 'Figure'
-        if type(v) == Image.Image or is_plot:
-            experiment_.send_image(m, v)
+        if mrunner.settings.NEPTUNE_USE_NEW_API:
+            experiment_[m].log(v)
         else:
-            experiment_.send_metric(m, v)
+            if type(v) == Image.Image or is_plot:
+                experiment_.send_image(m, v)
+            else:
+                experiment_.send_metric(m, v)
     else:
         print("{}:{}".format(m, v))

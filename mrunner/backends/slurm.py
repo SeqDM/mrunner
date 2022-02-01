@@ -67,6 +67,7 @@ EXPERIMENT_OPTIONAL_FIELDS = [
     ('cmd_type', dict(default='srun')),
     ('requirements_file', dict(default=(None))),
     ('venv', dict(default=(None))),  # path to virtual environment
+    ('conda', dict(default=(None))),  # conda env name
     ('singularity_container', dict(default=(None))),  # path to virtual environment
     ('restore_from_path', dict(default=None)),
     ('send_code', dict(default=None))

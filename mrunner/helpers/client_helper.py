@@ -208,7 +208,6 @@ def logger(m, v):
     global experiment_
 
     if experiment_:
-        import neptune
         from PIL import Image
         m = m.lstrip().rstrip()  # This is to circumvent neptune's bug
         is_plot = type(v).__module__ == 'matplotlib.figure' and type(v).__name__ == 'Figure'

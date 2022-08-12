@@ -19,6 +19,8 @@ RECOMMENDED_CPUS_NUMBER = 4
 DEFAULT_SCRATCH_DIR = 'mrunner_scratch'
 DEFAULT_CACHE_DIR = '.cache'
 SCRATCH_DIR_RANDOM_SUFIX_SIZE = 10
+DEFAULT_LOGS_DIR_NAME = "logs"
+DEFAULT_CONFIGS_DIR_NAME = "configs"
 
 def generate_scratch_dir(experiment):
     return Path(experiment._slurm_scratch_dir) / pathify(DEFAULT_SCRATCH_DIR)
@@ -36,6 +38,12 @@ def generate_experiment_scratch_dir(experiment):
     #TODO(pj): Change id_generator to hyper-params shorthand
     return experiment.grid_scratch_dir / pathify(experiment.name + '_' + id_generator(4))
 
+def generate_grid_logs_dir(experiment):
+    return experiment.grid_scratch_dir / DEFAULT_LOGS_DIR_NAME
+
+def generate_grid_configs_dir(experiment):
+    return experiment.grid_scratch_dir / DEFAULT_CONFIGS_DIR_NAME
+
 EXPERIMENT_MANDATORY_FIELDS = [
     ('_slurm_scratch_dir', dict())  # obtained from cluster $SCRATCH env
 ]
@@ -51,6 +59,8 @@ EXPERIMENT_OPTIONAL_FIELDS = [
     ('project_scratch_dir', dict(default=attr.Factory(generate_project_scratch_dir, takes_self=True))),
     ('grid_scratch_dir', dict(default=attr.Factory(generate_grid_scratch_dir, takes_self=True))),
     ('experiment_scratch_dir', dict(default=attr.Factory(generate_experiment_scratch_dir, takes_self=True))),
+    ('grid_logs_dir', dict(default=attr.Factory(generate_grid_logs_dir, takes_self=True))),
+    ('grid_configs_dir', dict(default=attr.Factory(generate_grid_configs_dir, takes_self=True))),
 
     # run time related
     ('account', dict(default=None)),
@@ -123,7 +133,7 @@ class SlurmWrappersCmd(object):
                 cmd_items += [option, default]
 
         default_log_path = \
-            self._experiment.experiment_scratch_dir /\
+            self._experiment.grid_logs_dir /\
             'slurm_%a.log' if self._cmd == 'sbatch' else None
         _extend_cmd_items(cmd_items, '-A', 'account')
         _extend_cmd_items(cmd_items, '-o', 'log_output_path', default_log_path)  # output
@@ -238,6 +248,7 @@ class SlurmBackend(object):
 
     def ensure_directories(self, experiment):
         self._ensure_dir(experiment.experiment_scratch_dir)
+        self._ensure_dir(experiment.grid_logs_dir)
         if not self.initialized:
             self._ensure_dir(experiment.cache_dir)
             self.initialized = True
@@ -251,7 +262,7 @@ class SlurmBackend(object):
         paths_to_copy = experiment.paths_to_copy \
             if experiment.paths_to_copy is not None else []
         paths_to_copy.\
-            append(rf"{experiment.cmd._experiment_config_path.dirname()}:.")
+            append(rf"{experiment.cmd._experiment_config_path.dirname()}:configs")
         paths_to_dump = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=paths_to_copy)
         with tempfile.NamedTemporaryFile(suffix='.tar.gz') as temp_file:
             # archive all files
@@ -271,6 +282,7 @@ class SlurmBackend(object):
             return
         cd = f'cd {experiment.experiment_scratch_dir} ;  '
         self._fabric_run(cd + 'tar xvf {tar_filename} > /dev/null'.format(tar_filename=archive_remote_path))
+        self._fabric_run(f"mv {experiment.experiment_scratch_dir}/configs {experiment.grid_configs_dir}")
 
     def send_script(self, script, remote_script_path):
         self._put(script.path, remote_script_path)

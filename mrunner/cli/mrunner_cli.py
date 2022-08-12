@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import tempfile
 # import os
 # os.environ["SSH_AUTH_SOCK"]="/tmp/ssh-h64uxkoMjk31/agent.25841"
 # print(os.environ)
@@ -128,37 +129,32 @@ def run(ctx, spec, requirements_file, base_image, script, params):
     if context['backend_type'] == 'kubernetes' and not requirements_file:
         raise click.ClickException('Provide requirements.txt file')
 
-    try:
-        script_path = Path(script)
-        dump_dir = script_path.parent / 'dump_{}'.format(script_path.stem)
-        dump_dir.makedirs_p()
-        experiments = []
+    tmp_dir = tempfile.TemporaryDirectory()
+    dump_dir = Path(tmp_dir.name)
+    experiments = []
 
-        for config_path, experiment in generate_experiments(script, context, spec=spec, dump_dir=dump_dir):
-            experiment.update({'base_image': base_image, 'requirements': requirements})
+    for config_path, experiment in generate_experiments(script, context, spec=spec, dump_dir=dump_dir):
+        experiment.update({'base_image': base_image, 'requirements': requirements})
 
-            cmd = ' '.join([experiment.pop('script')] + list(params))
-            experiment['cmd'] = WrapperCmd(cmd=cmd, experiment_config_path=config_path)
+        cmd = ' '.join([experiment.pop('script')] + list(params))
+        experiment['cmd'] = WrapperCmd(cmd=cmd, experiment_config_path=config_path)
 
-            experiments.append(experiment)
+        experiments.append(experiment)
 
-        num_of_reties = 5
-        ok = None
-        result = None
-        for i in range(num_of_reties):
-            try:
-                result = get_backend(experiment['backend_type']).run(experiments=experiments)
-                ok=True
-                break
-            except Exception as e:
-                print(f"Caught exception: {e}. Retrying until {num_of_reties} times")
-                ok = False
-        if not ok:
-            raise RuntimeError(f"Failed for {num_of_reties} times. Give up.")
+    num_of_reties = 5
+    ok = None
+    result = None
+    for i in range(num_of_reties):
+        try:
+            result = get_backend(experiment['backend_type']).run(experiments=experiments)
+            ok=True
+            break
+        except Exception as e:
+            print(f"Caught exception: {e}. Retrying until {num_of_reties} times")
+            ok = False
+    if not ok:
+        raise RuntimeError(f"Failed for {num_of_reties} times. Give up.")
 
-    finally:
-        if dump_dir:
-            dump_dir.rmtree_p()
 
     # Call the registered callbacks.
     if result is not None:

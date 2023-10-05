@@ -9,6 +9,7 @@ from typing import List
 from munch import Munch
 from neptune.utils import get_git_info
 from termcolor import colored
+from gitignore_parser import parse_gitignore
 
 from mrunner.experiment import Experiment
 from mrunner.utils.namesgenerator import get_random_name
@@ -21,7 +22,7 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
                               exclude: List[str] = None, with_neptune: bool = True,
                               display_neptune_link: bool = True, copy_neptune_link: bool = True,
                               paths_to_dump: str = None, paths_to_copy: List[str] = None,
-                              with_mpi: bool = False, callbacks: list = None):
+                              with_mpi: bool = False, callbacks: list = None, mrunner_ignore: str = None):
 
     assert with_neptune == True or project_name is not None, \
         "You need to specify `project_name` if `with_neptune` is False!"
@@ -73,6 +74,9 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
         if git_info:
             # Hack due to external bugs
             git_info.commit_date = None
+
+    if mrunner_ignore:
+        exclude += find_files_with_mrunnerignore(".", mrunner_ignore)
 
     # Last chance to change something
     for callback in callbacks:
@@ -163,3 +167,26 @@ def get_combinations(param_grids, limit=None):
     if limit:
         combinations = combinations[:limit]
     return combinations
+
+
+def find_files_with_mrunnerignore(base_path, mrunnerignore_path):
+    # Create a GitignoreParser object
+    gitignore = parse_gitignore(mrunnerignore_path)
+
+    # List to store matched files
+    matched_paths = []
+
+    # Walk through the directory tree starting from the base path
+    for root, dirs, files in os.walk(base_path):
+        # Check if the current directory should be ignored
+        if gitignore(root):
+            matched_paths.append(os.path.relpath(root, base_path))
+            continue
+
+        # Check if each file in the current directory should be ignored
+        files = [f for f in files if gitignore(os.path.join(root, f))]
+
+        # Add the remaining files to the matched_files list
+        matched_paths.extend([os.path.join(root, f) for f in files])
+
+    return matched_paths

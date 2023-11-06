@@ -2,7 +2,8 @@ import copy
 import os
 import pathlib
 import warnings
-from collections import Mapping, OrderedDict
+from collections.abc import Mapping
+from collections import OrderedDict
 from itertools import product
 from typing import List
 

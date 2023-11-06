@@ -8,7 +8,7 @@ from itertools import product
 from typing import List
 
 from munch import Munch
-from neptune.utils import get_git_info
+from neptune.common.utils import get_git_info
 from termcolor import colored
 from gitignore_parser import parse_gitignore
 

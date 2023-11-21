@@ -9,10 +9,19 @@ from fabric import Connection
 from paramiko.agent import Agent
 from path import Path
 
-from mrunner.experiment import COMMON_EXPERIMENT_MANDATORY_FIELDS, COMMON_EXPERIMENT_OPTIONAL_FIELDS
-from mrunner.consts import PLGRID_USERNAME, PLGRID_HOST, PLGRID_TESTING_PARTITION
+from mrunner.consts import PLGRID_HOST, PLGRID_TESTING_PARTITION, PLGRID_USERNAME
+from mrunner.experiment import (
+    COMMON_EXPERIMENT_MANDATORY_FIELDS,
+    COMMON_EXPERIMENT_OPTIONAL_FIELDS,
+)
 from mrunner.utils.namesgenerator import id_generator
-from mrunner.utils.utils import GeneratedTemplateFile, get_paths_to_copy, make_attr_class, filter_only_attr, pathify
+from mrunner.utils.utils import (
+    GeneratedTemplateFile,
+    filter_only_attr,
+    get_paths_to_copy,
+    make_attr_class,
+    pathify,
+)
 
 LOGGER = logging.getLogger(__name__)
 RECOMMENDED_CPUS_NUMBER = 4
@@ -21,6 +30,8 @@ DEFAULT_CACHE_DIR = '.cache'
 SCRATCH_DIR_RANDOM_SUFIX_SIZE = 10
 DEFAULT_LOGS_DIR_NAME = "logs"
 DEFAULT_CONFIGS_DIR_NAME = "configs"
+TMP_CONFIGS_DIR = "___configs___" # temporary directory name to send configs using the same zip as code, it should be very unique
+
 
 def generate_scratch_dir(experiment):
     return Path(experiment._slurm_scratch_dir) / pathify(DEFAULT_SCRATCH_DIR)
@@ -262,7 +273,7 @@ class SlurmBackend(object):
         paths_to_copy = experiment.paths_to_copy \
             if experiment.paths_to_copy is not None else []
         paths_to_copy.\
-            append(rf"{experiment.cmd._experiment_config_path.dirname()}:configs")
+            append(rf"{experiment.cmd._experiment_config_path.dirname()}:{TMP_CONFIGS_DIR}")
         paths_to_dump = get_paths_to_copy(exclude=experiment.exclude, paths_to_copy=paths_to_copy)
         with tempfile.NamedTemporaryFile(suffix='.tar.gz') as temp_file:
             # archive all files
@@ -282,7 +293,7 @@ class SlurmBackend(object):
             return
         cd = f'cd {experiment.experiment_scratch_dir} ;  '
         self._fabric_run(cd + 'tar xvf {tar_filename} > /dev/null'.format(tar_filename=archive_remote_path))
-        self._fabric_run(f"mv {experiment.experiment_scratch_dir}/configs {experiment.grid_configs_dir}")
+        self._fabric_run(f"mv {experiment.experiment_scratch_dir}/{TMP_CONFIGS_DIR} {experiment.grid_configs_dir}")
 
     def send_script(self, script, remote_script_path):
         self._put(script.path, remote_script_path)

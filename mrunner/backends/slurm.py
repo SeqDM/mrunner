@@ -9,11 +9,7 @@ from fabric import Connection
 from paramiko.agent import Agent
 from path import Path
 
-from mrunner.consts import PLGRID_HOST, PLGRID_TESTING_PARTITION, PLGRID_USERNAME
-from mrunner.experiment import (
-    COMMON_EXPERIMENT_MANDATORY_FIELDS,
-    COMMON_EXPERIMENT_OPTIONAL_FIELDS,
-)
+from mrunner.experiment import COMMON_EXPERIMENT_MANDATORY_FIELDS, COMMON_EXPERIMENT_OPTIONAL_FIELDS
 from mrunner.utils.namesgenerator import id_generator
 from mrunner.utils.utils import (
     GeneratedTemplateFile,
@@ -61,8 +57,8 @@ EXPERIMENT_MANDATORY_FIELDS = [
 
 EXPERIMENT_OPTIONAL_FIELDS = [
     # by default use plgrid configuration
-    ('slurm_url', dict(default='{}@{}'.format(PLGRID_USERNAME, PLGRID_HOST))),
-    ('partition', dict(default=PLGRID_TESTING_PARTITION)),
+    ('slurm_url', dict(default=None)),
+    ('partition', dict(default=None)),
 
     # scratch directory related
     ('scratch_dir', dict(default=attr.Factory(generate_scratch_dir, takes_self=True))),
@@ -226,7 +222,7 @@ class SlurmBackend(object):
 
         experiment = experiments[0]  # Assume that all experiments share deployment config. This should be reflected in all code.
         # configure fabric
-        slurm_url = experiment.pop('slurm_url', '{}@{}'.format(PLGRID_USERNAME, PLGRID_HOST))
+        slurm_url = experiment.pop('slurm_url')
         if slurm_url in self.conn_cache:
             self.connection = self.conn_cache[slurm_url]
             LOGGER.debug('REUSING cached connection')

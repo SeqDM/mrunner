@@ -6,7 +6,6 @@ import tempfile
 
 import attr
 from fabric import Connection
-from paramiko.agent import Agent
 from path import Path
 
 from mrunner.experiment import COMMON_EXPERIMENT_MANDATORY_FIELDS, COMMON_EXPERIMENT_OPTIONAL_FIELDS
@@ -218,7 +217,6 @@ class SlurmBackend(object):
     conn_cache = {}
 
     def run(self, experiments):
-        assert Agent().get_keys(), "Add your private key to ssh agent using 'ssh-add' command"
 
         experiment = experiments[0]  # Assume that all experiments share deployment config. This should be reflected in all code.
         # configure fabric

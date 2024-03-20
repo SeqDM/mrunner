@@ -14,7 +14,7 @@ from gitignore_parser import parse_gitignore
 
 from mrunner.experiment import Experiment
 from mrunner.utils.namesgenerator import get_random_name
-
+import mrunner.plugins as plugins
 
 def create_experiments_helper(experiment_name: str, base_config: dict, params_grid: dict,
                               script: str, python_path: str, tags: List[str],
@@ -81,6 +81,11 @@ def create_experiments_helper(experiment_name: str, base_config: dict, params_gr
 
     # Last chance to change something
     for callback in callbacks:
+        if isinstance(callback, str):
+            callback = plugins.get_by_name(callback)
+        if not callable(callback):
+            raise ValueError(f"Callback should be a function or str referring to a plugin registered "
+                             f"in mrunner.plugins, got {callback}")
         callback(**locals())
     for params_configuration in params_configurations:
         config = copy.deepcopy(base_config)

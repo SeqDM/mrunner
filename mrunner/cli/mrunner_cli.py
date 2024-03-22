@@ -51,7 +51,13 @@ def register_after_run_callback(callback):
 
 
 @click.group()
-@click.option("--debug/--no-debug", default=False, help="Enable debug messages")
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    default=0,
+    help="Change verbosity level 0-warning, 1-info, 2-debug",
+)
 @click.option(
     "--config",
     default=None,
@@ -72,19 +78,20 @@ def register_after_run_callback(callback):
     '(if not provided, "contexts.current" conf key will be used)',
 )
 @click.pass_context
-def cli(ctx, debug, config, context, **kwargs):
+def cli(ctx, verbose, config, context, **kwargs):
     """Deploy experiments on computation cluster"""
 
-    log_tags_to_suppress = [
+    modules_to_suppress_logging = [
         "pykwalify",
         "docker",
         "kubernetes",
         "paramiko",
         "requests.packages",
     ]
-    logging.basicConfig(level=debug and logging.DEBUG or logging.INFO)
-    for tag in log_tags_to_suppress:
-        logging.getLogger(tag).setLevel(logging.ERROR)
+    verbosity = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}[min(verbose, 2)]
+    logging.basicConfig(level=verbosity)
+    for module in modules_to_suppress_logging:
+        logging.getLogger(module).setLevel(logging.ERROR)
 
     # read configuration
     config_path = Path(config or get_default_config_path(ctx))

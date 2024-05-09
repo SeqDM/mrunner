@@ -5,35 +5,36 @@ import re
 import warnings
 
 import attr
+import cloudpickle
 import six
 from path import Path
-import cloudpickle
 
-from mrunner.utils.namesgenerator import id_generator, get_random_name, get_unique_name
+from mrunner.utils.namesgenerator import get_random_name, get_unique_name, id_generator
 
 LOGGER = logging.getLogger(__name__)
 
 COMMON_EXPERIMENT_MANDATORY_FIELDS = [
-    ('backend_type', dict()),
-    ('name', dict()),
-    ('storage_dir', dict()),
-    ('cmd', dict())
+    ("backend_type", dict()),
+    ("name", dict()),
+    ("storage_dir", dict()),
+    ("cmd", dict()),
 ]
 
 COMMON_EXPERIMENT_OPTIONAL_FIELDS = [
-    ('project', dict(default='sandbox')),
-    ('random_name', dict(factory=get_random_name)),
-    ('unique_name', dict(default=attr.Factory(get_unique_name, takes_self=True))),
-    ('requirements', dict(default=attr.Factory(list), type=list)),
-    ('with_mpi', dict(default=False)),
-    ('exclude', dict(default=None, type=list)),
-    ('paths_to_copy', dict(default=attr.Factory(list), type=list)),
-    ('env', dict(default=attr.Factory(dict), type=dict)),
-    ('cpu', dict(default=attr.Factory(dict), type=dict)),
-    ('mem', dict(default=attr.Factory(dict), type=dict)),
-    ('gpu', dict(default=attr.Factory(dict), type=dict)),
-    ('cwd', dict(default=attr.Factory(Path.getcwd))),
+    ("project", dict(default="sandbox")),
+    ("random_name", dict(factory=get_random_name)),
+    ("unique_name", dict(default=attr.Factory(get_unique_name, takes_self=True))),
+    ("requirements", dict(default=attr.Factory(list), type=list)),
+    ("with_mpi", dict(default=False)),
+    ("exclude", dict(default=None, type=list)),
+    ("paths_to_copy", dict(default=attr.Factory(list), type=list)),
+    ("env", dict(default=attr.Factory(dict), type=dict)),
+    ("cpu", dict(default=attr.Factory(dict), type=dict)),
+    ("mem", dict(default=attr.Factory(dict), type=dict)),
+    ("gpu", dict(default=attr.Factory(dict), type=dict)),
+    ("cwd", dict(default=attr.Factory(Path.getcwd))),
 ]
+
 
 @attr.s
 class Experiment(object):
@@ -65,22 +66,30 @@ def _merge_experiment_parameters(cli_kwargs, context):
             config[k] = v
         else:
             if isinstance(config[k], (list, tuple)):
-                LOGGER.debug('Extending config["{}"]: {} with {}'.format(k, config[k], v))
+                LOGGER.debug(
+                    'Extending config["{}"]: {} with {}'.format(k, config[k], v)
+                )
                 if isinstance(v, (list, tuple)):
                     config[k].extend(v)
                 else:
                     config[k].append(v)
             else:
-                LOGGER.debug('Overwriting config["{}"]: {} -> {}'.format(k, config[k], v))
+                LOGGER.debug(
+                    'Overwriting config["{}"]: {} -> {}'.format(k, config[k], v)
+                )
                 config[k] = v
     return config
 
 
 def _load_py_experiment(script, spec, *, dump_dir):
-    LOGGER.info('Found {} function in {}; will use it as experiments configuration generator'.format(spec, script))
+    LOGGER.info(
+        "Found {} function in {}; will use it as experiments configuration generator".format(
+            spec, script
+        )
+    )
 
     def _create_and_dump_config(spec_params, dump_dir, idx):
-        config_path = dump_dir / 'config_{}'.format(idx)
+        config_path = dump_dir / "config_{}".format(idx)
         with open(config_path, "wb") as file:
             cloudpickle.dump(spec_params, file, protocol=4)
 
@@ -89,14 +98,14 @@ def _load_py_experiment(script, spec, *, dump_dir):
     experiments_list = get_experiments_list(script, spec)
     for idx, experiment in enumerate(experiments_list):
         spec_params = experiment.to_dict()
-        spec_params['name'] = re.sub(r'[ .,_-]+', '-', spec_params['name'].lower())
+        spec_params["name"] = re.sub(r"[ .,_-]+", "-", spec_params["name"].lower())
 
         config_path = _create_and_dump_config(spec_params, dump_dir, idx)
 
         yield config_path, spec_params
 
 
-def generate_experiments(script, context, *, spec='spec', dump_dir=None):
+def generate_experiments(script, context, *, spec="spec", dump_dir=None):
     experiments = _load_py_experiment(script, spec=spec, dump_dir=dump_dir)
 
     for config_path, spec_params in experiments:
@@ -106,18 +115,21 @@ def generate_experiments(script, context, *, spec='spec', dump_dir=None):
 
 _experiment_list = None
 
+
 def get_experiments_list(script, spec):
     global _experiment_list
     if _experiment_list is None:
         vars = {
-            'script': str(Path(script).name),
-            '__file__': str(Path(script)),
+            "script": str(Path(script).name),
+            "__file__": str(Path(script)),
         }
         exec(open(script).read(), vars)
         _experiment_list = vars.get(spec, None)
         if _experiment_list is None:
-            print("The experiment file was loaded but the {} "
-                  "variable is not set. Exiting".format(spec))
+            print(
+                "The experiment file was loaded but the {} "
+                "variable is not set. Exiting".format(spec)
+            )
             exit(1)
 
     return _experiment_list

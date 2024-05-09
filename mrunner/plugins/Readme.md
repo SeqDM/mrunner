@@ -14,7 +14,7 @@ experiments_list = create_experiments_helper(
     script="fake script",
     "...."
     project_name="pmtest/bison-pl",
-    
+
     callbacks=["print_neptune_link"]
 )
 ```

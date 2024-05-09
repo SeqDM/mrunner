@@ -21,3 +21,6 @@ Run `pip install .` in the repo root dir after cloning it.
 ## How to use?
 
 More details may be found in the [examples](examples).
+
+## Contributing
+Please use pre-commit when contibuting to the repository. Install the package with `[dev]` option. And run `pre-commit install` before commiting any code to the repository. The pre-commit package handles proper formatting using black and isort.

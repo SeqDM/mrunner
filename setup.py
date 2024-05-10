@@ -20,7 +20,7 @@ setup(
         "termcolor",
         "pyperclip",
         "cloudpickle",
-        "neptune",
+        "neptune>=1.0.0",
         "munch",
         "gin-config",
         "gitignore_parser",

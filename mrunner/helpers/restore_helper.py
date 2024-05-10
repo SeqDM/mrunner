@@ -1,14 +1,14 @@
 import logging
 import os
 
-import mrunner.settings
-
 try:
     import neptune
 except ImportError:
     print("pip install neptune-client to use restore-helper")
 
 log = logging.getLogger(__name__)
+
+raise NotImplementedError("Restore helper is currently not supported!")
 
 
 class NeptuneHelper(object):
@@ -41,10 +41,7 @@ class NeptuneHelper(object):
 def restore_helper(
     organization, project, id=None, tag=None, copy_mask="*", send_code=None
 ):
-    assert (
-        not mrunner.settings.NEPTUNE_USE_NEW_API,
-        "Restore helper not yet supported with new neptune API!",
-    )
+    raise NotImplementedError("Restore helper is currently not supported!")
 
     if send_code is None:
         send_code = copy_mask != "*"

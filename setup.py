@@ -28,5 +28,8 @@ setup(
     entry_points={
         "console_scripts": ["mrunner=mrunner.cli.mrunner_cli:cli"],
     },
-    extras_require={"dev": ["black", "isort", "pre-commit"]},
+    extras_require={
+        "dev": ["black", "isort", "pre-commit"],
+        "doc": ["sphinx-rtd-theme", "sphinx"],
+    },
 )

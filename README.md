@@ -24,3 +24,12 @@ More details may be found in the [examples](examples).
 
 ## Contributing
 Please use pre-commit when contibuting to the repository. Install the package with `[dev]` option. And run `pre-commit install` before commiting any code to the repository. The pre-commit package handles proper formatting using black and isort.
+
+### Documentation
+Documentation is available at [mrunner24.readthedocs.io](https://mrunner24.readthedocs.io/en/latest/)
+
+To generate the documentation locally run:
+```
+pip install -e .[doc]
+sphinx-build -M html docs/source/ docs/build/
+```

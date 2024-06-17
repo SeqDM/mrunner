@@ -37,22 +37,27 @@ def inject_dict_to_gin(dict, scope=None):
 def nest_params(params, prefixes):
     """Nest params based on keys prefixes.
 
+
     Example:
-      For input
-      params = dict(
-        param0=value0,
-        prefix0_param1=value1,
-        prefix0_param2=value2
-      )
-      prefixes = ("prefix0_",)
-      This method modifies params into nested dictionary:
-      {
-        "param0" : value0
-        "prefix0": {
-          "param1": value1,
-          "param2": value2
-        }
-      }
+        For input::
+
+            params = dict(
+                param0=value0,
+                prefix0_param1=value1,
+                prefix0_param2=value2
+            )
+            prefixes = ("prefix0_",)
+
+        This method modifies params into nested dictionary::
+
+            {
+                "param0" : value0
+                "prefix0": {
+                    "param1": value1,
+                    "param2": value2
+                }
+            }
+
     """
     for prefix in prefixes:
         dict_params = Munch()

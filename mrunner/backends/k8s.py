@@ -2,79 +2,58 @@
 import logging
 import re
 
-import attr
+from attrs import define, field
 from kubernetes import client, config
+from path import Path
 
-from mrunner.experiment import (
-    COMMON_EXPERIMENT_MANDATORY_FIELDS,
-    COMMON_EXPERIMENT_OPTIONAL_FIELDS,
-)
+from mrunner.experiment import ContextBase, Experiment
 from mrunner.utils.docker_engine import DockerEngine
-from mrunner.utils.utils import filter_only_attr, make_attr_class
+from mrunner.utils.namesgenerator import get_random_name
+from mrunner.utils.utils import filter_only_attr
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _generate_project_namespace(args):
-    return re.sub(r"[ .,_/-]+", "-", args.project)
+@define(kw_only=True)
+class KubernetesContext(ContextBase):
+    registry_url: str
+    base_image: str
+    requirements_file: str = None
+    google_project_id: str = ""
+    registry_username: str = ""
+    registry_password: str = ""
+    default_pvc_size: str = ""
+    cpu: str = None
+    gpu: str = None
+    mem: str = None
+    requirements: list[str] = field(init=False)
+
+    @requirements.default
+    def parse_requirement_file(self):
+        if self.requirements_file is not None:
+            return [req.strip() for req in Path(self.requirements_file).open("r")]
+        return []
 
 
-def _extract_cmd_without_params(args):
-    cmd = args.cmd.command
-    if args.cmd and " -- " in args.cmd.command:
-        cmd = args.cmd.command.split(" -- ")[0] + " --"
-    return cmd.split(" ")
+@define
+class _KubernetesExperiment(KubernetesContext, Experiment):
+    @property
+    def cmd_without_params(self):
+        cmd = self.cmd.command
+        if self.cmd and " -- " in self.cmd.command:
+            cmd = self.cmd.command.split(" -- ")[0] + " --"
+        return cmd.split(" ")
 
+    @property
+    def params(self):
+        cmd = ""
+        if self.cmd and " -- " in self.cmd.command:
+            cmd = self.cmd.command.split(" -- ")[1].strip()
+        return cmd.split(" ") if cmd else []
 
-def _extract_params(args):
-    cmd = ""
-    if args.cmd and " -- " in args.cmd.command:
-        cmd = args.cmd.command.split(" -- ")[1].strip()
-    return cmd.split(" ") if cmd else []
-
-
-EXPERIMENT_MANDATORY_FIELDS = [
-    ("registry_url", dict()),  # url to docker registry
-    ("base_image", dict()),  # experiment base docker image: name[:version]
-]
-
-EXPERIMENT_OPTIONAL_FIELDS = [
-    ("google_project_id", dict(default="")),
-    (
-        "registry_username",
-        dict(default=""),
-    ),  # docker image registry credentials (not required for GKE)
-    ("registry_password", dict(default="")),
-    (
-        "cmd_without_params",
-        dict(
-            init=False,
-            default=attr.Factory(_extract_cmd_without_params, takes_self=True),
-        ),
-    ),
-    (
-        "params",
-        dict(init=False, default=attr.Factory(_extract_params, takes_self=True)),
-    ),
-    ("default_pvc_size", dict(default="")),
-    (
-        "namespace",
-        dict(
-            init=False,
-            default=attr.Factory(_generate_project_namespace, takes_self=True),
-        ),
-    ),
-]
-
-EXPERIMENT_FIELDS = (
-    COMMON_EXPERIMENT_MANDATORY_FIELDS
-    + EXPERIMENT_MANDATORY_FIELDS
-    + COMMON_EXPERIMENT_OPTIONAL_FIELDS
-    + EXPERIMENT_OPTIONAL_FIELDS
-)
-ExperimentRunOnKubernetes = make_attr_class(
-    "ExperimentRunOnKubernetes", EXPERIMENT_FIELDS, frozen=True
-)
+    @property
+    def namespace(self):
+        return re.sub(r"[ .,_/-]+", "-", self.project)
 
 
 class Job(client.V1Job):
@@ -85,19 +64,16 @@ class Job(client.V1Job):
         "tpu": "cloud-tpus.google.com/v2",
     }
 
-    def __init__(self, image, experiment):
-        from mrunner.utils.namesgenerator import get_random_name
+    def __init__(self, image: str, experiment: _KubernetesExperiment):
 
         experiment_name = re.sub(r"[ ,.\-_:;]+", "-", experiment.name)
         name = "{}-{}".format(experiment_name, get_random_name("-"))
-
-        envs = {k: str(v) for k, v in experiment.env.items()}
 
         resources_types = ["cpu", "gpu", "mem"]
         resources = {
             t: getattr(experiment, t)
             for t in resources_types
-            if getattr(experiment, t) != {}
+            if getattr(experiment, t) is not None
         }
         resources = dict(
             [self._map_resources(name, qty) for name, qty in resources.items()]
@@ -122,7 +98,7 @@ class Job(client.V1Job):
             resources=client.V1ResourceRequirements(
                 limits={k: v for k, v in resources.items()}
             ),
-            env=[client.V1EnvVar(name=k, value=v) for k, v in envs.items()],
+            env=[client.V1EnvVar(name=k, value=v) for k, v in experiment.env.items()],
         )
         pod_spec = client.V1PodSpec(
             restart_policy="Never", containers=[ctr], volumes=[vol]
@@ -275,8 +251,8 @@ class KubernetesBackend(object):
         self.apps_api = client.AppsV1Api()
 
     def run(self, experiment):
-        experiment = ExperimentRunOnKubernetes(
-            **filter_only_attr(ExperimentRunOnKubernetes, experiment)
+        experiment = _KubernetesExperiment(
+            **filter_only_attr(_KubernetesExperiment, experiment)
         )
         image = DockerEngine().build_and_publish_image(experiment=experiment)
 
@@ -329,7 +305,9 @@ class KubernetesBackend(object):
             nfs_pv.spec.source.server = nfs_svc_ip
             self.core_api.patch_persistent_volume(nfs_pv_name, nfs_pv)
             LOGGER.warning(
-                "pv/{}: patched NFS server ip (current={})", nfs_pv_name, nfs_svc_ip
+                "pv/%s: patched NFS server ip (current=%s)",
+                str(nfs_pv_name),
+                str(nfs_svc_ip),
             )
         self._ensure_resource(
             "pvc",
@@ -376,12 +354,10 @@ class KubernetesBackend(object):
         response = list_fun(**list_kwargs)
         if not response.items:
             resource = create_fun(**create_kwargs)
-            LOGGER.debug(
-                "{}/{} created ({})".format(resource_type, name, resource.to_str())
-            )
+            LOGGER.debug("%s/%s created (%s)", resource_type, name, resource.to_str())
         else:
             resource = response.items[0]
-            LOGGER.debug("{}/{} exists".format(resource_type, name))
+            LOGGER.debug("%s/%s exists", resource_type, name)
         return bool(response.items), resource
 
     @staticmethod
@@ -402,12 +378,10 @@ class KubernetesBackend(object):
         ]:
             try:
                 subprocess.call(cmd, stdout=DEVNULL, stderr=DEVNULL)
-            except OSError:
+            except OSError as exc:
                 raise RuntimeError(
-                    "Missing {} cmd. Please install and setup it first: {}".format(
-                        cmd, link
-                    )
-                )
+                    f"Missing {cmd} cmd. Please install and setup it first: {link}"
+                ) from exc
         return result
 
 

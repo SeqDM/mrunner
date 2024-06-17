@@ -9,23 +9,13 @@ from pprint import pformat
 import click
 from path import Path
 
-from mrunner.backends.k8s import get_kubernetes_backend
-from mrunner.backends.slurm import get_slurm_backend
+from mrunner.backends import get_backend
 from mrunner.cli.config import ConfigParser
 from mrunner.cli.config import context as context_cli
 from mrunner.experiment import generate_experiments
-from mrunner.utils.utils import WrapperCmd
+from mrunner.utils.utils import WrapperCmd, validate_context
 
 LOGGER = logging.getLogger(__name__)
-
-
-def get_backend(backend_type):
-    if backend_type == "kubernetes":
-        return get_kubernetes_backend()
-    if backend_type == "slurm":
-        return get_slurm_backend()
-    else:
-        raise KeyError("No backend type: {}".format(backend_type))
 
 
 def get_default_config_path(ctx):
@@ -136,9 +126,7 @@ def cli(ctx, verbose, config, context, **kwargs):
             )
         if context_name not in config.contexts:
             raise click.ClickException(
-                'Could not find predefined context: "{}". Use context add command.'.format(
-                    context_name
-                )
+                f"Could not find predefined context: {context_name}. Use context add command."
             )
 
         try:
@@ -146,21 +134,13 @@ def cli(ctx, verbose, config, context, **kwargs):
             res = {k: v for k, v in kwargs.items() if v is not None}
             context.update(res)
             LOGGER.info("Config to be used:")
-            LOGGER.info("\n" + pformat(context))
+            LOGGER.info("\n %s", pformat(context))
 
-            LOGGER.info("")
-            LOGGER.info(
-                "You can change config from commandline. E.g. mrunner ... --cpu 5"
-            )
-            LOGGER.info("")
-            context["context_name"] = (
-                context_name  # TODO(pm): This is probably never used
-            )
-            for k in ["storage_dir", "backend_type"]:
-                if k not in context:
-                    raise AttributeError('Missing required "{}" context key'.format(k))
-        except KeyError:
-            raise click.ClickException("Unknown context {}".format(context_name))
+            context["context_name"] = context_name
+            validate_context(context)
+
+        except KeyError as exc:
+            raise click.ClickException(f"Unknown context {context_name}") from exc
         except AttributeError as e:
             raise click.ClickException(e)
 
@@ -173,31 +153,16 @@ def cli(ctx, verbose, config, context, **kwargs):
     default="experiments_list",
     help="Name of function providing experiment specification",
 )
-@click.option(
-    "--requirements_file", type=click.Path(), help="Path to requirements file"
-)
-@click.option("--base_image", help="Base docker image used in experiment")
 @click.argument(
     "script",
     type=click.Path(dir_okay=False),
 )
 @click.argument("params", nargs=-1)
 @click.pass_context
-def run(ctx, spec, requirements_file, base_image, script, params):
+def run(ctx, spec, script, params):
     """Run experiment"""
 
     context = ctx.obj["context"]
-
-    # validate options and arguments
-    requirements = (
-        requirements_file
-        and [req.strip() for req in Path(requirements_file).open("r")]
-        or []
-    )
-    if context["backend_type"] == "kubernetes" and not base_image:
-        raise click.ClickException("Provide docker base image")
-    if context["backend_type"] == "kubernetes" and not requirements_file:
-        raise click.ClickException("Provide requirements.txt file")
 
     tmp_dir = tempfile.TemporaryDirectory()
     dump_dir = Path(tmp_dir.name)
@@ -206,9 +171,8 @@ def run(ctx, spec, requirements_file, base_image, script, params):
     for config_path, experiment in generate_experiments(
         script, context, spec=spec, dump_dir=dump_dir
     ):
-        experiment.update({"base_image": base_image, "requirements": requirements})
-
-        cmd = " ".join([experiment.pop("script")] + list(params))
+        # TODO(mo): Can cmd be created and passed any other way?
+        cmd = " ".join([experiment["script"]] + list(params))
         experiment["cmd"] = WrapperCmd(cmd=cmd, experiment_config_path=config_path)
 
         experiments.append(experiment)
@@ -244,4 +208,5 @@ def run(ctx, spec, requirements_file, base_image, script, params):
 cli.add_command(context_cli)
 
 if __name__ == "__main__":
+    # pylint: disable=no-value-for-parameter
     cli()

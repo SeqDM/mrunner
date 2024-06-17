@@ -1,143 +1,102 @@
 # -*- coding: utf-8 -*-
 import logging
-import socket
 import tarfile
 import tempfile
 
 import attr
+from attrs import Factory, define, field
 from fabric import Connection
 from path import Path
 
-from mrunner.experiment import (
-    COMMON_EXPERIMENT_MANDATORY_FIELDS,
-    COMMON_EXPERIMENT_OPTIONAL_FIELDS,
-)
+from mrunner.experiment import ContextBase, Experiment
 from mrunner.utils.namesgenerator import id_generator
 from mrunner.utils.utils import (
     GeneratedTemplateFile,
     filter_only_attr,
     get_paths_to_copy,
-    make_attr_class,
     pathify,
 )
 
 LOGGER = logging.getLogger(__name__)
-RECOMMENDED_CPUS_NUMBER = 4
+
 DEFAULT_SCRATCH_DIR = "mrunner_scratch"
 DEFAULT_CACHE_DIR = ".cache"
-SCRATCH_DIR_RANDOM_SUFIX_SIZE = 10
 DEFAULT_LOGS_DIR_NAME = "logs"
 DEFAULT_CONFIGS_DIR_NAME = "configs"
 TMP_CONFIGS_DIR = "___configs___"  # temporary directory name to send configs using the same zip as code, it should be very unique
 
 
-def generate_scratch_dir(experiment):
-    return Path(experiment._slurm_scratch_dir) / pathify(DEFAULT_SCRATCH_DIR)
+@define(kw_only=True)
+class SlurmContext(ContextBase):
+    slurm_url: str
+    partition: str = None
+    account: str = None
+    log_output_path: str = None
+    time: str = "30"
+    ntasks: str = "1"
+    cpu: str = "0"
+    gpu: str = "0"
+    mem: str = "5GB"
+    nodes: str = "1"
+    qos: str = None
+    nodelist: str = None
+    exclude_nodes: str = None
+    modules_to_load: list[str] = Factory(list)
+    sbatch_options: list[str] = Factory(list)
+    prolog_cmd: str = ""
+    cmd_type: str = "srun"
+    requierments_file: str = None
+    venv: str = None
+    conda: str = None
+    singularity_container: str = None
+    scratch_dir_name: str = DEFAULT_SCRATCH_DIR
+    cache_dir_name: Path = DEFAULT_CACHE_DIR
+    grid_logs_dir_name: str = DEFAULT_LOGS_DIR_NAME
+    grid_configs_dir_name: str = DEFAULT_CONFIGS_DIR_NAME
 
 
-def generate_cache_dir(experiment):
-    return experiment.scratch_dir / pathify(DEFAULT_CACHE_DIR)
+@define
+class _SlurmExperiment(SlurmContext, Experiment):
+    _experiment_scratch_dir: Path = field(init=False, default=None)
 
+    @property
+    def scratch_dir(self):
+        return Path(self.storage_dir) / pathify(self.scratch_dir_name)
 
-def generate_project_scratch_dir(experiment):
-    return experiment.scratch_dir / pathify(experiment.project.split("/")[-1])
+    @property
+    def cache_dir(self):
+        return self.scratch_dir / pathify(self.cache_dir_name)
 
+    @property
+    def project_scratch_dir(self):
+        return self.scratch_dir / pathify(self.project.split("/")[-1])
 
-def generate_grid_scratch_dir(experiment):
-    return experiment.project_scratch_dir / pathify(experiment.unique_name)
+    @property
+    def grid_scratch_dir(self):
+        return self.project_scratch_dir / pathify(self.unique_name)
 
+    @property
+    def experiment_scratch_dir(self):
+        if self._experiment_scratch_dir is None:
+            # TODO(pj): Change id_generator to hyper-params shorthand
+            self._experiment_scratch_dir = self.grid_scratch_dir / pathify(
+                self.name + "_" + id_generator(4)
+            )
+        return self._experiment_scratch_dir
 
-def generate_experiment_scratch_dir(experiment):
-    # TODO(pj): Change id_generator to hyper-params shorthand
-    return experiment.grid_scratch_dir / pathify(
-        experiment.name + "_" + id_generator(4)
-    )
+    @property
+    def grid_logs_dir(self):
+        return self.grid_scratch_dir / self.grid_logs_dir_name
 
-
-def generate_grid_logs_dir(experiment):
-    return experiment.grid_scratch_dir / DEFAULT_LOGS_DIR_NAME
-
-
-def generate_grid_configs_dir(experiment):
-    return experiment.grid_scratch_dir / DEFAULT_CONFIGS_DIR_NAME
-
-
-EXPERIMENT_MANDATORY_FIELDS = [
-    ("_slurm_scratch_dir", dict())  # obtained from cluster $SCRATCH env
-]
-
-EXPERIMENT_OPTIONAL_FIELDS = [
-    # by default use plgrid configuration
-    ("slurm_url", dict(default=None)),
-    ("partition", dict(default=None)),
-    # scratch directory related
-    ("scratch_dir", dict(default=attr.Factory(generate_scratch_dir, takes_self=True))),
-    ("cache_dir", dict(default=attr.Factory(generate_cache_dir, takes_self=True))),
-    (
-        "project_scratch_dir",
-        dict(default=attr.Factory(generate_project_scratch_dir, takes_self=True)),
-    ),
-    (
-        "grid_scratch_dir",
-        dict(default=attr.Factory(generate_grid_scratch_dir, takes_self=True)),
-    ),
-    (
-        "experiment_scratch_dir",
-        dict(default=attr.Factory(generate_experiment_scratch_dir, takes_self=True)),
-    ),
-    (
-        "grid_logs_dir",
-        dict(default=attr.Factory(generate_grid_logs_dir, takes_self=True)),
-    ),
-    (
-        "grid_configs_dir",
-        dict(default=attr.Factory(generate_grid_configs_dir, takes_self=True)),
-    ),
-    # run time related
-    ("account", dict(default=None)),
-    ("log_output_path", dict(default=None)),
-    ("time", dict(default=None)),
-    ("ntasks", dict(default=None)),
-    ("nodes", dict(default=None)),
-    ("qos", dict(default=None)),
-    ("nodelist", dict(default=None)),
-    ("exclude_nodes", dict(default=None)),
-    ("modules_to_load", dict(default=attr.Factory(list), type=list)),
-    ("sbatch_options", dict(default=attr.Factory(list), type=list)),
-    ("prolog_cmd", dict(default="")),
-    ("cmd_type", dict(default="srun")),
-    ("requirements_file", dict(default=(None))),
-    ("venv", dict(default=(None))),  # path to virtual environment
-    ("conda", dict(default=(None))),  # conda env name
-    ("singularity_container", dict(default=(None))),  # path to virtual environment
-    ("restore_from_path", dict(default=None)),
-    ("send_code", dict(default=None)),
-]
-
-EXPERIMENT_FIELDS = (
-    COMMON_EXPERIMENT_MANDATORY_FIELDS
-    + EXPERIMENT_MANDATORY_FIELDS
-    + COMMON_EXPERIMENT_OPTIONAL_FIELDS
-    + EXPERIMENT_OPTIONAL_FIELDS
-)
-
-ExperimentRunOnSlurm = make_attr_class(
-    "ExperimentRunOnSlurm", EXPERIMENT_FIELDS, frozen=True
-)
+    @property
+    def grid_configs_dir(self):
+        return self.grid_scratch_dir / self.grid_configs_dir_name
 
 
 class ExperimentScript(GeneratedTemplateFile):
     DEFAULT_SLURM_EXPERIMENT_SCRIPT_TEMPLATE = "slurm_experiment.sh.jinja2"
 
-    def __init__(self, experiment):
-        env = {k: str(v) for k, v in experiment.env.items()}
-
-        experiment = attr.evolve(
-            experiment,
-            env=env,
-            experiment_scratch_dir=experiment.experiment_scratch_dir,
-        )
-
+    def __init__(self, experiment: _SlurmExperiment):
         super(ExperimentScript, self).__init__(
             template_filename=self.DEFAULT_SLURM_EXPERIMENT_SCRIPT_TEMPLATE,
             experiment=experiment,
@@ -153,19 +112,16 @@ class ExperimentScript(GeneratedTemplateFile):
 
 class SlurmWrappersCmd(object):
 
-    def __init__(self, experiment, script_path, array_size):
+    def __init__(self, experiment, script_path, array_size, cmd_type):
         self._experiment = experiment
         self._script_path = script_path
         self.array_str = rf"0-{array_size-1}"
+        self._cmd = cmd_type
 
     @property
     def command(self):
         # see: https://slurm.schedmd.com/srun.html
         # see: https://slurm.schedmd.com/sbatch.html
-
-        if not self._cmd:
-            raise RuntimeError("Instantiate one of SlurmWrapperCmd subclasses")
-
         cmd_items = [self._cmd]
 
         def _extend_cmd_items(cmd_items, option, data_key, default=None):
@@ -216,55 +172,31 @@ class SlurmWrappersCmd(object):
 
                 if ntasks > 1:
                     cmd_items += ["-n", str(ntasks)]
-                    LOGGER.debug("Running {} tasks".format(ntasks))
+                    LOGGER.debug("Running %d tasks", ntasks)
                 total_cpus = cores_per_task * ntasks
                 if total_cpus != int(resource_qty):
                     LOGGER.warning(
-                        "Will request {} CPU instead of {}".format(
-                            total_cpus, int(resource_qty)
-                        )
-                    )
-                if total_cpus > RECOMMENDED_CPUS_NUMBER:
-                    LOGGER.warning(
-                        "Requested number of CPU is higher than recommended value {}/4".format(
-                            total_cpus, RECOMMENDED_CPUS_NUMBER
-                        )
+                        "Will request %d CPU instead of %d",
+                        total_cpus,
+                        int(resource_qty),
                     )
                 LOGGER.debug(
-                    "Using {}/{} CPU cores per_task/total".format(
-                        cores_per_task, total_cpus
-                    )
+                    "Using %d/%d CPU cores per_task/total", cores_per_task, total_cpus
                 )
             elif resource_type == "gpu":  # TODO(PM): does not work at the moment
-                cmd_items += ["--gres", "gpu:{}".format(resource_qty)]
-                LOGGER.debug("Using {} gpu".format(resource_qty))
+                cmd_items += ["--gres", f"gpu:{int(resource_qty)}"]
+                LOGGER.debug("Using %d gpu", int(resource_qty))
             elif resource_type == "mem":
                 cmd_items += ["--mem", str(resource_qty)]
-                LOGGER.debug("Using {} memory".format(resource_qty))
+                LOGGER.debug("Using %s memory", resource_qty)
             elif resource_type == "nodes":
                 cmd_items += ["--nodes", str(resource_qty)]
             else:
                 raise ValueError(
-                    "Unsupported resource request: {}={}".format(
-                        resource_type, resource_qty
-                    )
+                    f"Unsupported resource request: {resource_type}={resource_qty}"
                 )
 
         return cmd_items
-
-
-class SBatchWrapperCmd(SlurmWrappersCmd):
-
-    def __init__(self, experiment, script_path, **kwargs):
-        super(SBatchWrapperCmd, self).__init__(experiment, script_path, **kwargs)
-        self._cmd = "sbatch"
-
-
-class SRunWrapperCmd(SlurmWrappersCmd):
-
-    def __init__(self, experiment, script_path, **kwargs):
-        super(SRunWrapperCmd, self).__init__(experiment, script_path, **kwargs)
-        self._cmd = "srun"
 
 
 @attr.s
@@ -279,7 +211,7 @@ class SlurmBackend(object):
             0
         ]  # Assume that all experiments share deployment config. This should be reflected in all code.
         # configure fabric
-        slurm_url = experiment.pop("slurm_url")
+        slurm_url = experiment["slurm_url"]
         if slurm_url in self.conn_cache:
             self.connection = self.conn_cache[slurm_url]
             LOGGER.debug("REUSING cached connection")
@@ -289,11 +221,8 @@ class SlurmBackend(object):
             self.conn_cache[slurm_url] = self.connection
 
         # create Slurm experiment
-        slurm_scratch_dir = experiment["storage_dir"]
-        experiment = ExperimentRunOnSlurm(
-            slurm_scratch_dir=slurm_scratch_dir,
-            slurm_url=slurm_url,
-            **filter_only_attr(ExperimentRunOnSlurm, experiment),
+        experiment = _SlurmExperiment(
+            **filter_only_attr(_SlurmExperiment, experiment),
         )
 
         # create experiment script
@@ -308,11 +237,11 @@ class SlurmBackend(object):
         self.deploy_code(experiment, archive_remote_path)
         self.send_script(script, remote_script_path)
 
-        SCmd = {"sbatch": SBatchWrapperCmd, "srun": SRunWrapperCmd}[experiment.cmd_type]
-        cmd = SCmd(
+        cmd = SlurmWrappersCmd(
             experiment=experiment,
             script_path=remote_script_path,
             array_size=len(experiments),
+            cmd_type=experiment.cmd_type,
         )
         self._fabric_run(cmd.command, warn=False)
         return (experiment, experiments)
@@ -344,12 +273,12 @@ class SlurmBackend(object):
             with tarfile.open(temp_file.name, "w:gz") as tar_file:
                 for p in paths_to_dump:
                     LOGGER.debug(
-                        'Adding "{}" to deployment archive'.format(p.rel_remote_path)
+                        'Adding "%s" to deployment archive', str(p.rel_remote_path)
                     )
                     try:
                         tar_file.add(p.local_path, arcname=p.rel_remote_path)
                     except PermissionError:
-                        LOGGER.warning("Skipping {}: no access".format(p.local_path))
+                        LOGGER.warning("Skipping %s: no access", str(p.local_path))
 
             # upload archive to cluster and extract
             self._put(temp_file.name, archive_remote_path)

@@ -1,8 +1,6 @@
 # mrunner
 
-mrunner is a tool intended to run experiment code on different
-computation systems, without manual deployment and with significantly
-less configuration. Main features are:
+mrunner(meta-runner) is a tool intended to run experiment code on various computation systems, without manual deployment and with significantly less configuration. Main features include:
 
 - Prepare remote environment,
 - Deploy code,
@@ -32,6 +30,9 @@ Instuctions on how to support Zsh, Fish and other shells are available on [the c
 
 More details may be found in the [examples](examples).
 
+Assumptions:
+* We support running experiments in batches, however current implementation assumes that each run from the batch has the same hardware requirements. This is reflected in the fact that all runs from a grid use single context.
+
 ## Contributing
 Please use pre-commit when contibuting to the repository. Install the package with `[dev]` option. And run `pre-commit install` before commiting any code to the repository. The pre-commit package handles proper formatting using black and isort.
 
@@ -43,3 +44,6 @@ To generate the documentation locally run:
 pip install -e .[doc]
 sphinx-build -M html docs/source/ docs/build/
 ```
+
+### Why using attrs?
+Implementation of dataclasses from standard python 3.10 library possibly fulfills all our requirements. However to stay more flexible and support older versions of python (3.8, 3.9) we stick to attrs library. The key feature on which we realy is inheritance of atribute classes.

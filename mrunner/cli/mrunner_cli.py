@@ -50,6 +50,33 @@ def register_after_run_callback(callback):
     after_run_callbacks.append(callback)
 
 
+def _get_contexts(
+    ctx: click.Context, param: click.Parameter, incomplete: str
+) -> list[str]:
+    """Auto complete for option "context" based on contexts in config file.
+
+    :param ctx: The current command context.
+    :param args: The current parameter requesting completion.
+    :param incomplete: The partial word that is being completed, as a
+        string. May be an empty string '' if no characters have
+        been entered yet.
+    :return: List of possible contexts read from a config file
+
+    TODO: Add some tests based on
+    https://stackoverflow.com/questions/58577801/python-click-autocomplete-for-str-str-option
+    """
+
+    if "config" not in ctx.params:
+        return []
+
+    config_path = ctx.params["config"]
+
+    config = ConfigParser(Path(config_path)).load()
+
+    opts = config.contexts
+    return [arg for arg in opts if arg.startswith(incomplete)]
+
+
 @click.group()
 @click.option(
     "-v",
@@ -73,9 +100,11 @@ def register_after_run_callback(callback):
 @click.option("--ntasks", default=None, type=str, help="ntasks")
 @click.option(
     "--context",
+    type=str,
     default=None,
     help="Name of remote context to use "
     '(if not provided, "contexts.current" conf key will be used)',
+    shell_complete=_get_contexts,
 )
 @click.pass_context
 def cli(ctx, verbose, config, context, **kwargs):
@@ -148,7 +177,10 @@ def cli(ctx, verbose, config, context, **kwargs):
     "--requirements_file", type=click.Path(), help="Path to requirements file"
 )
 @click.option("--base_image", help="Base docker image used in experiment")
-@click.argument("script")
+@click.argument(
+    "script",
+    type=click.Path(dir_okay=False),
+)
 @click.argument("params", nargs=-1)
 @click.pass_context
 def run(ctx, spec, requirements_file, base_image, script, params):

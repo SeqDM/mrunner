@@ -18,6 +18,16 @@ Currently [slurm](https://slurm.schedmd.com) and _(possibly)_
 
 Run `pip install .` in the repo root dir after cloning it.
 
+### Install MRunner auto-completion
+To enable full auto completion (e.g. of contexts from config file) in **Bash** please run:
+```
+_MRUNNER_COMPLETE=bash_source mrunner > ~/.mrunner-complete.bash
+echo ". ~/.mrunner-complete.bash >> ~/.bashrc
+```
+then, restart terminal session to make it work.
+
+Instuctions on how to support Zsh, Fish and other shells are available on [the click package website](https://click.palletsprojects.com/en/8.1.x/shell-completion/).
+
 ## How to use?
 
 More details may be found in the [examples](examples).

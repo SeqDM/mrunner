@@ -168,7 +168,7 @@ def get_combinations(param_grids, limit=None):
     :param param_grids: dict representing hparams grid, or list of such
     mappings
     :returns: list of OrderedDict (if params_grids consisted OrderedDicts,
-     the Order of parameters will be sustained.)
+    the Order of parameters will be sustained.)
     """
     allowed_container_types = get_container_types()
     if isinstance(param_grids, Mapping):

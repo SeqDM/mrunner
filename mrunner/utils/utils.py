@@ -4,9 +4,12 @@ from collections import OrderedDict, namedtuple
 from tempfile import NamedTemporaryFile
 
 import attr
+import attrs
 import six
 from jinja2 import Environment, PackageLoader, StrictUndefined
 from path import Path
+
+from mrunner.backends import get_context_cls
 
 LOGGER = logging.getLogger(__name__)
 
@@ -92,7 +95,7 @@ def get_paths_to_copy(paths_to_copy=None, exclude=None):
             p = p.abspath()
             excluded = False
             for e in exclude:
-                e = e.abspath()
+                e = Path(e).abspath()
                 if not e.relpath(p).startswith(".."):
                     excluded = True
                     # if excluded subdir - not whole current
@@ -121,9 +124,10 @@ def get_paths_to_copy(paths_to_copy=None, exclude=None):
 
     result = set(result)
     LOGGER.debug(
-        "get_paths_to_copy(paths_to_copy={}, exclude={}) result={}".format(
-            paths_to_copy, exclude, [str(s) for s, d in result]
-        )
+        "get_paths_to_copy(paths_to_copy=%s, exclude=%s) result=%s",
+        str(paths_to_copy),
+        str(exclude),
+        str([str(s) for s, d in result]),
     )
     return result
 
@@ -143,5 +147,38 @@ def filter_only_attr(AttrClass, d):
     for k, v in d.items():
         if k in available_fields:
             continue
-        LOGGER.debug("Ignoring argument {}={}".format(k, v))
+        LOGGER.debug("Ignoring argument %s=%s", str(k), str(v))
     return {k: v for k, v in d.items() if k in available_fields}
+
+
+def validate_context(context_dict: dict):
+    """This function checks:
+    1. weather all required parameters of the context are present in the context_dict
+    2. weather all keys in the context_dict have corresponding fields in the context
+        class
+    """
+    if "backend_type" not in context_dict:
+        raise AttributeError(
+            f"Context `{context_dict['context_name']}` is missing required field `backend_type`."
+        )
+
+    context_cls = get_context_cls(context_dict["backend_type"])
+
+    required_params = {
+        f.name
+        for f in attrs.fields(context_cls)
+        if f.default == attrs.NOTHING and f.init is True
+    }
+    params = {f.name for f in attrs.fields(context_cls) if f.init is True}
+
+    for p in required_params:
+        if p not in context_dict:
+            raise ValueError(
+                f"In context {context_dict['context_name']}: backend {context_dict['backend_type']} requires field `{p}`."
+            )
+
+    for p in context_dict:
+        if p not in params:
+            raise ValueError(
+                f"Parameter `{p}` is not supported by the backend {context_dict['backend_type']}. Please fix context {context_dict['context_name']}."
+            )

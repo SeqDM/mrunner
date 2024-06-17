@@ -10,8 +10,6 @@ import socket
 import cloudpickle
 from munch import Munch
 
-import mrunner.settings
-
 experiment_ = None
 logger_ = logging.getLogger(__name__)
 
@@ -39,22 +37,27 @@ def inject_dict_to_gin(dict, scope=None):
 def nest_params(params, prefixes):
     """Nest params based on keys prefixes.
 
+
     Example:
-      For input
-      params = dict(
-        param0=value0,
-        prefix0_param1=value1,
-        prefix0_param2=value2
-      )
-      prefixes = ("prefix0_",)
-      This method modifies params into nested dictionary:
-      {
-        "param0" : value0
-        "prefix0": {
-          "param1": value1,
-          "param2": value2
-        }
-      }
+        For input::
+
+            params = dict(
+                param0=value0,
+                prefix0_param1=value1,
+                prefix0_param2=value2
+            )
+            prefixes = ("prefix0_",)
+
+        This method modifies params into nested dictionary::
+
+            {
+                "param0" : value0
+                "prefix0": {
+                    "param1": value1,
+                    "param2": value2
+                }
+            }
+
     """
     for prefix in prefixes:
         dict_params = Munch()
@@ -132,12 +135,7 @@ def get_configuration(
                 "Neptune will be not used.\nTo run with neptune please set your NEPTUNE_API_TOKEN variable"
             )
         else:
-            if mrunner.settings.NEPTUNE_USE_NEW_API:
-                import neptune.new as neptune
-            else:
-                import neptune
-
-                neptune.init(project_qualified_name=experiment.project)
+            import neptune
 
             params_to_sent_to_neptune = {}
             for param_name in params:
@@ -146,11 +144,10 @@ def get_configuration(
                     if val.isnumeric():
                         val = ast.literal_eval(val)
                     params_to_sent_to_neptune[param_name] = val
-                except:
+                except Exception:
                     logger_.warning(
-                        "Not possible to send to neptune:{}. Implement __str__".format(
-                            param_name
-                        )
+                        "Not possible to send to neptune: %s. Implement __str__",
+                        param_name,
                     )
 
             # Set pwd property with path to experiment.
@@ -160,10 +157,12 @@ def get_configuration(
                 if re.match(env_to_properties_regexp, key)
             }
 
-            if mrunner.settings.NEPTUNE_USE_NEW_API:
-                if type(with_neptune) == str:
-                    raise AttributeError("This feature is no longer supported!")
-
+            if isinstance(with_neptune, str):
+                experiment_ = neptune.init_run(
+                    project=experiment.project,
+                    with_id=with_neptune,
+                )
+            else:
                 experiment_ = neptune.init_run(
                     project=experiment.project,
                     name=experiment.name,
@@ -174,30 +173,13 @@ def get_configuration(
                 # TODO: How to properly pass git info?
                 experiment_["git_info"] = git_info
 
-                atexit.register(experiment_.stop)
-            else:
-                if type(with_neptune) == str:
-                    logger_.info("Connecting to experiment:", with_neptune)
-                    print_diagnostics = False
-                    experiment_ = neptune.project.get_experiments(with_neptune)[0]
-                else:
-                    neptune.create_experiment(
-                        name=experiment.name,
-                        tags=experiment.tags,
-                        params=params,
-                        properties=properties,
-                        git_info=git_info,
-                    )
-                    experiment_ = neptune.get_experiment()
-                atexit.register(neptune.stop)
+            atexit.register(experiment_.stop)
 
     if print_diagnostics:
-        logger_.info(
-            "PYTHONPATH:{}".format(os.environ.get("PYTHONPATH", "not_defined"))
-        )
-        logger_.info("cd {}".format(os.getcwd()))
+        logger_.info("PYTHONPATH: %s", os.environ.get("PYTHONPATH", "not_defined"))
+        logger_.info("cd %s", os.getcwd())
         logger_.info(socket.getfqdn())
-        logger_.info("Params:{}".format(params))
+        logger_.info("Params: %s", str(params))
 
     if inject_parameters_to_FLAGS:
         # absl is required to handle program flags, but can be not installed
@@ -214,10 +196,7 @@ def get_configuration(
     if config_file is None:
         nest_params(params, nesting_prefixes)
         if experiment_:
-            if mrunner.settings.NEPTUNE_USE_NEW_API:
-                params["experiment_id"] = experiment_["sys/id"].fetch()
-            else:
-                params["experiment_id"] = experiment_.id
+            params["experiment_id"] = experiment_["sys/id"].fetch()
         else:
             params["experiment_id"] = None
 
@@ -231,15 +210,7 @@ def logger(m, v):
         from PIL import Image
 
         m = m.lstrip().rstrip()  # This is to circumvent neptune's bug
-        is_plot = (
-            type(v).__module__ == "matplotlib.figure" and type(v).__name__ == "Figure"
-        )
-        if mrunner.settings.NEPTUNE_USE_NEW_API:
-            experiment_[m].log(v)
-        else:
-            if type(v) == Image.Image or is_plot:
-                experiment_.send_image(m, v)
-            else:
-                experiment_.send_metric(m, v)
+        experiment_[m].log(v)
+
     else:
         print("{}:{}".format(m, v))

@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="mrunner",
-    version="0.2.10",
+    version="24.07-rc1",
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -20,7 +20,7 @@ setup(
         "termcolor",
         "pyperclip",
         "cloudpickle",
-        "neptune",
+        "neptune>=1.0.0",
         "munch",
         "gin-config",
         "gitignore_parser",
@@ -28,5 +28,8 @@ setup(
     entry_points={
         "console_scripts": ["mrunner=mrunner.cli.mrunner_cli:cli"],
     },
-    extras_require={"dev": ["black", "isort", "pre-commit"]},
+    extras_require={
+        "dev": ["black", "isort", "pre-commit"],
+        "doc": ["sphinx-rtd-theme", "sphinx"],
+    },
 )

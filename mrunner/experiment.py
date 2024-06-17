@@ -1,58 +1,49 @@
 # -*- coding: utf-8 -*-
 import logging
-import random
 import re
-import warnings
+from typing import Any, Generator
 
 import attr
 import cloudpickle
-import six
+from attrs import Factory, define, field
 from path import Path
 
-from mrunner.utils.namesgenerator import get_random_name, get_unique_name, id_generator
+from mrunner.utils.namesgenerator import get_random_name, get_unique_name
+from mrunner.utils.utils import WrapperCmd
 
 LOGGER = logging.getLogger(__name__)
 
-COMMON_EXPERIMENT_MANDATORY_FIELDS = [
-    ("backend_type", dict()),
-    ("name", dict()),
-    ("storage_dir", dict()),
-    ("cmd", dict()),
-]
 
-COMMON_EXPERIMENT_OPTIONAL_FIELDS = [
-    ("project", dict(default="sandbox")),
-    ("random_name", dict(factory=get_random_name)),
-    ("unique_name", dict(default=attr.Factory(get_unique_name, takes_self=True))),
-    ("requirements", dict(default=attr.Factory(list), type=list)),
-    ("with_mpi", dict(default=False)),
-    ("exclude", dict(default=None, type=list)),
-    ("paths_to_copy", dict(default=attr.Factory(list), type=list)),
-    ("env", dict(default=attr.Factory(dict), type=dict)),
-    ("cpu", dict(default=attr.Factory(dict), type=dict)),
-    ("mem", dict(default=attr.Factory(dict), type=dict)),
-    ("gpu", dict(default=attr.Factory(dict), type=dict)),
-    ("cwd", dict(default=attr.Factory(Path.getcwd))),
-]
+@define(kw_only=True)
+class ContextBase:
+    backend_type: str
+    context_name: str
+    storage_dir: Path
+    cmd: WrapperCmd = None
+    cwd: Path = Factory(Path.getcwd)
 
 
-@attr.s
+def values_to_str(d: dict[str, Any]) -> dict[str, str]:
+    return {k: str(v) for k, v in d.items()}
+
+
+@define(kw_only=True, slots=False)
 class Experiment(object):
 
-    project = attr.ib()
-    name = attr.ib()
-    script = attr.ib()
-    parameters = attr.ib()
-    env = attr.ib(factory=dict)
-    paths_to_copy = attr.ib(factory=list)
-    tags = attr.ib(factory=list)
-    exclude = attr.ib(factory=list)
-    random_name = attr.ib(factory=get_random_name)
-    unique_name = attr.ib(default=attr.Factory(get_unique_name, takes_self=True))
-    git_info = attr.ib(default=None)
-    with_mpi = attr.ib(default=False)
-    restore_from_path = attr.ib(default=None)
-    send_code = attr.ib(default=True)
+    project: str = field()
+    name: Any = field()
+    script: Any = field()
+    parameters: Any = field()
+    env: dict[str, str] = field(factory=dict, converter=values_to_str)
+    paths_to_copy: Any = field(factory=list)
+    tags: Any = field(factory=list)
+    exclude: Any = field(factory=list)
+    random_name: Any = field(factory=get_random_name)
+    unique_name: Any = field(default=attr.Factory(get_unique_name, takes_self=True))
+    git_info: Any = field(default=None)
+    with_mpi: Any = field(default=False)
+    restore_from_path: Any = field(default=None)
+    send_code: Any = field(default=True)
 
     def to_dict(self):
         return attr.asdict(self)
@@ -81,15 +72,15 @@ def _merge_experiment_parameters(cli_kwargs, context):
     return config
 
 
-def _load_py_experiment(script, spec, *, dump_dir):
+def _load_py_experiment(script, spec, *, dump_dir: Path):
     LOGGER.info(
         "Found {} function in {}; will use it as experiments configuration generator".format(
             spec, script
         )
     )
 
-    def _create_and_dump_config(spec_params, dump_dir, idx):
-        config_path = dump_dir / "config_{}".format(idx)
+    def _create_and_dump_config(spec_params, dump_dir: Path, idx: int):
+        config_path = dump_dir / f"config_{idx}"
         with open(config_path, "wb") as file:
             cloudpickle.dump(spec_params, file, protocol=4)
 
@@ -98,14 +89,16 @@ def _load_py_experiment(script, spec, *, dump_dir):
     experiments_list = get_experiments_list(script, spec)
     for idx, experiment in enumerate(experiments_list):
         spec_params = experiment.to_dict()
-        spec_params["name"] = re.sub(r"[ .,_-]+", "-", spec_params["name"].lower())
+        spec_params["name"] = re.sub(r"[ .,_:;-]+", "-", spec_params["name"].lower())
 
         config_path = _create_and_dump_config(spec_params, dump_dir, idx)
 
         yield config_path, spec_params
 
 
-def generate_experiments(script, context, *, spec="spec", dump_dir=None):
+def generate_experiments(
+    script: str, context: dict, *, spec="spec", dump_dir=None
+) -> Generator[tuple[str, dict], Any, None]:
     experiments = _load_py_experiment(script, spec=spec, dump_dir=dump_dir)
 
     for config_path, spec_params in experiments:

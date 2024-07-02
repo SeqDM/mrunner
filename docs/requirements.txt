@@ -1,5 +1,7 @@
 sphinx
 sphinx_rtd_theme
+myst_parser
+
 cryptography>=2.2.2
 PyYAML
 fabric

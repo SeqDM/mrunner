@@ -7,7 +7,7 @@ mrunner(meta-runner) is a tool intended to run experiment code on various comput
 - Run experiments,
   - Use of scheduler like Slurm or Kubernetes on the remote,
   - It is also possible to run experiment locally.
-- Monitor experiments using [neptune](neptune.ml).
+- Monitor experiments using [neptune](https://neptune.ai/).
 
 Currently [slurm](https://slurm.schedmd.com) and _(possibly)_
 [kubernetes](http://kubernetes.io) clusters are supported.
@@ -28,7 +28,7 @@ Instuctions on how to support Zsh, Fish and other shells are available on [the c
 
 ## How to use?
 
-More details may be found in the [examples](examples).
+More details may be found in the [examples](./examples).
 
 Assumptions:
 * We support running experiments in batches, however current implementation assumes that each run from the batch has the same hardware requirements. This is reflected in the fact that all runs from a grid use single context.

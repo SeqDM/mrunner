@@ -6,12 +6,16 @@
 Welcome to MRunner's documentation!
 ===================================
 
-.. autosummary::
-   :toctree: Modules
-   :template: custom-module-template.rst
-   :recursive:
+.. toctree::
+   :hidden:
+   :maxdepth: 1
 
-   mrunner
+   api
+   changelog
+
+.. include:: ../../README.md
+   :parser: commonmark
+
 
 Indices and tables
 ==================

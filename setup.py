@@ -30,6 +30,6 @@ setup(
     },
     extras_require={
         "dev": ["black", "isort", "pre-commit"],
-        "doc": ["sphinx-rtd-theme", "sphinx"],
+        "doc": ["sphinx-rtd-theme", "sphinx", "myst_parser"],
     },
 )

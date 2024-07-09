@@ -45,7 +45,7 @@ class SlurmContext(ContextBase):
     sbatch_options: list[str] = Factory(list)
     prolog_cmd: str = ""
     cmd_type: str = "srun"
-    requierments_file: str = None
+    requirements_file: str = None
     venv: str = None
     conda: str = None
     singularity_container: str = None

@@ -7,6 +7,7 @@ import attr
 from attrs import Factory, define, field
 from fabric import Connection
 from path import Path
+from typing import Optional
 
 from mrunner.experiment import ContextBase, Experiment
 from mrunner.utils.namesgenerator import id_generator
@@ -29,26 +30,26 @@ TMP_CONFIGS_DIR = "___configs___"  # temporary directory name to send configs us
 @define(kw_only=True)
 class SlurmContext(ContextBase):
     slurm_url: str
-    partition: str = None
-    account: str = None
-    log_output_path: str = None
+    partition: Optional[str] = None
+    account: Optional[str] = None
+    log_output_path: Optional[str] = None
     time: str = "30"
     ntasks: str = "1"
-    cpu: str = "0"
-    gpu: str = "0"
-    mem: str = "5GB"
+    cpu: Optional[str] = None
+    gpu: Optional[str] = None
+    mem: Optional[str] = None
     nodes: str = "1"
-    qos: str = None
-    nodelist: str = None
-    exclude_nodes: str = None
+    qos: Optional[str] = None
+    nodelist: Optional[str] = None
+    exclude_nodes: Optional[str] = None
     modules_to_load: list[str] = Factory(list)
     sbatch_options: list[str] = Factory(list)
     prolog_cmd: str = ""
     cmd_type: str = "srun"
-    requirements_file: str = None
-    venv: str = None
-    conda: str = None
-    singularity_container: str = None
+    requirements_file: Optional[str] = None
+    venv: Optional[str] = None
+    conda: Optional[str] = None
+    singularity_container: Optional[str] = None
     scratch_dir_name: str = DEFAULT_SCRATCH_DIR
     cache_dir_name: Path = DEFAULT_CACHE_DIR
     grid_logs_dir_name: str = DEFAULT_LOGS_DIR_NAME

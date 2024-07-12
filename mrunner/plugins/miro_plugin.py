@@ -59,7 +59,7 @@ def include_into_miro(miro_api_key=None, miro_experiment_board_id=None):
     return lambda **kwargs: _include_into_miro(miro_api_key, miro_experiment_board_id, **kwargs)
 
 
-# fun = include_into_miro(miro_api_key="eyJtaXJvLm9yaWdpbiI6ImV1MDEifQ_IvCLo5r_KQwh8WrSz2Xi6FhHK8s", miro_experiment_board_id="uXjVKzlRQ_U=")
+# fun = include_into_miro(miro_experiment_board_id="uXjVKzlRQ_U=")
 #
 # test_dict = {'project_name': 'pmtest/ProteinMultimodal',
 #              'experiment_name': 'aaa kotki dwa',
